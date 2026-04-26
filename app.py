@@ -24,9 +24,14 @@ def cargar_datos():
     # Lectura del archivo
     df = pd.read_csv(sheet_url)
     
-    # NORMALIZACIÓN: Quitamos espacios y pasamos a MAYÚSCULAS los nombres de las columnas
+    # NORMALIZACIÓN: Quitamos espacios y pasamos a MAYÚSCULAS
     df.columns = df.columns.str.strip().str.upper()
     
+    # LIMPIEZA DE FILAS VACÍAS: 
+    # Eliminamos cualquier fila que no tenga un número de LEGAJO válido
+    if 'LEGAJO' in df.columns:
+        df = df.dropna(subset=['LEGAJO'])
+        
     return df
 
 # ==========================================
