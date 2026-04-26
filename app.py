@@ -1,129 +1,89 @@
 import streamlit as st
 import pandas as pd
+import plotly.express as px
 
-# ==========================================
-# 1. CONFIGURACIÓN DE LA PÁGINA
-# ==========================================
-st.set_page_config(
-    page_title="Gestión de RRHH - Indicadores",
-    page_icon="📊",
-    layout="wide"
-)
+# 1. CONFIGURACIÓN
+st.set_page_config(page_title="Dashboard RRHH Avanzado", layout="wide")
+st.title("📊 Indicadores Visuales de Capital Humano")
 
-st.title("📊 Panel de Control de Recursos Humanos")
-st.markdown("---")
-
-# ==========================================
-# 2. FUNCIÓN DE CARGA Y LIMPIEZA DE DATOS
-# ==========================================
+# 2. CARGA DE DATOS
 @st.cache_data(ttl=600)
 def cargar_datos():
-    # URL de exportación de tu Google Sheet
     sheet_url = "https://docs.google.com/spreadsheets/d/1ElY2OaVFq3GzNiWoe69HCtnmQZe8rEK7/export?format=csv&gid=1543772338"
-    
-    # Lectura del archivo
     df = pd.read_csv(sheet_url)
-    
-    # NORMALIZACIÓN: Quitamos espacios y pasamos a MAYÚSCULAS
     df.columns = df.columns.str.strip().str.upper()
     
-    # LIMPIEZA DE FILAS VACÍAS: 
-    # Eliminamos cualquier fila que no tenga un número de LEGAJO válido
+    # Limpieza de filas vacías basada en Legajo
     if 'LEGAJO' in df.columns:
         df = df.dropna(subset=['LEGAJO'])
-        
     return df
 
-# ==========================================
-# 3. CUERPO PRINCIPAL DE LA APLICACIÓN
-# ==========================================
 try:
     df = cargar_datos()
-
-    # --- MÉTRICAS PRINCIPALES ---
-    st.subheader("📌 Indicadores Generales")
-    col1, col2, col3, col4 = st.columns(4)
-
-    with col1:
-        st.metric("Total de Personal", len(df))
     
-    with col2:
-        if 'EDAD' in df.columns:
-            promedio_edad = pd.to_numeric(df['EDAD'], errors='coerce').mean()
-            st.metric("Promedio de Edad", f"{promedio_edad:.1f} años")
+    # --- FILTROS LATERALES ---
+    st.sidebar.header("Filtros de Visualización")
+    area_list = ["TODAS"] + sorted(df['ÁREA'].dropna().unique().tolist()) if 'ÁREA' in df.columns else ["TODAS"]
+    sel_area = st.sidebar.selectbox("Filtrar por Área:", area_list)
     
-    with col3:
-        if 'ANTIGÜEDAD' in df.columns:
-            promedio_ant = pd.to_numeric(df['ANTIGÜEDAD'], errors='coerce').mean()
-            st.metric("Antigüedad Promedio", f"{promedio_ant:.1f} años")
+    df_plot = df.copy()
+    if sel_area != "TODAS":
+        df_plot = df[df['ÁREA'] == sel_area]
 
-    with col4:
-        # Ejemplo de indicador de género o rotación si tuvieras la columna
-        st.metric("Empresas Gestionadas", "2")
+    # --- MÉTRICAS RÁPIDAS ---
+    m1, m2, m3 = st.columns(3)
+    m1.metric("Personal en Vista", len(df_plot))
+    if 'EDAD' in df.columns:
+        m2.metric("Edad Promedio", f"{pd.to_numeric(df_plot['EDAD'], errors='coerce').mean():.1f} años")
+    m3.metric("Empresas", "Construcción / Cartón")
 
     st.markdown("---")
 
-    # --- FILTROS Y TABLA DE PERSONAL ---
-    st.subheader("📂 Seguimiento por Áreas")
-    
-    # Definimos las áreas según tu estructura administrativa
-    # (Administración y Finanzas se separan como pediste)
-    areas_base = ["TODAS", "ADMINISTRACIÓN CONTABLE", "FINANZAS", "PRODUCCIÓN", "LOGÍSTICA", "VENTAS"]
-    
-    # Si la columna 'ÁREA' existe, tomamos las que haya en el sheet, si no usamos las base
-    if 'ÁREA' in df.columns:
-        areas_sheet = df['ÁREA'].dropna().unique().tolist()
-        opciones_area = sorted(list(set(["TODAS"] + [str(a).upper().strip() for a in areas_sheet])))
-    else:
-        opciones_area = areas_base
+    # --- SECCIÓN DE GRÁFICOS ---
+    col_izq, col_der = st.columns(2)
 
-    area_sel = st.selectbox("Filtrar por Departamento:", opciones_area)
-
-    if area_sel != "TODAS" and 'ÁREA' in df.columns:
-        df_filtrado = df[df['ÁREA'].str.upper().str.strip() == area_sel]
-    else:
-        df_filtrado = df
-
-    # Mostrar tabla con columnas clave
-    cols_a_mostrar = [c for c in ['LEGAJO', 'APELLIDO Y NOMBRE', 'PUESTO', 'ÁREA'] if c in df.columns]
-    st.dataframe(df_filtrado[cols_a_mostrar], use_container_width=True)
-
-    st.markdown("---")
-
-    # --- MÓDULO DE DESEMPEÑO ---
-    st.subheader("📈 Evaluación de Desempeño y KPI")
-    
-    col_eval1, col_eval2 = st.columns(2)
-    
-    with col_eval1:
-        st.write("**Sistema de Calificación**")
-        st.info("Métricas estandarizadas en escala del 1 al 5.")
-        
-        nombre_empleado = st.selectbox("Seleccionar empleado para revisar:", df['APELLIDO Y NOMBRE'].unique())
-        nota_tecnica = st.slider("Competencias Técnicas / BIM / Diseño:", 1, 5, 3)
-        nota_soft = st.slider("Competencias Blandas / Gestión:", 1, 5, 3)
-        
-    with col_eval2:
-        st.write("**Propuestas de Mejora Implementadas**")
-        propuestas = st.number_input("Cantidad de propuestas del colaborador:", min_value=0, step=1)
-        
-        # Lógica de puntuación según cantidad de propuestas
-        if propuestas >= 3:
-            puntos_mejora = 5
-        elif propuestas == 2:
-            puntos_mejora = 4
-        elif propuestas == 1:
-            puntos_mejora = 3
+    with col_izq:
+        st.subheader("🏢 Distribución por Áreas")
+        if 'ÁREA' in df.columns:
+            fig_area = px.pie(df_plot, names='ÁREA', hole=0.4, 
+                             color_discrete_sequence=px.colors.qualitative.Safe)
+            st.plotly_chart(fig_area, use_container_width=True)
         else:
-            puntos_mejora = 1
-            
-        st.metric("Puntaje por Innovación", f"{puntos_mejora} / 5")
-        
-    if st.button("Simular Resultado Final"):
-        promedio_final = (nota_tecnica + nota_soft + puntos_mejora) / 3
-        st.success(f"El promedio de desempeño proyectado para {nombre_empleado} es: {promedio_final:.2f}")
+            st.warning("Falta columna 'ÁREA' para mostrar este gráfico.")
+
+    with col_der:
+        st.subheader("👥 Personal por Categoría")
+        if 'CATEGORÍA' in df.columns:
+            fig_cat = px.bar(df_plot['CATEGORÍA'].value_counts().reset_index(), 
+                            x='index', y='CATEGORÍA', labels={'index':'Categoría', 'CATEGORÍA':'Cantidad'})
+            st.plotly_chart(fig_cat, use_container_width=True)
+        else:
+            st.info("💡 Columna 'CATEGORÍA' no encontrada. Pendiente de carga.")
+
+    st.markdown("---")
+
+    col_bot1, col_bot2 = st.columns(2)
+
+    with col_bot1:
+        st.subheader("🎂 Rangos Etarios (Edades)")
+        if 'EDAD' in df.columns:
+            # Convertimos a numérico por seguridad
+            df_plot['EDAD'] = pd.to_numeric(df_plot['EDAD'], errors='coerce')
+            fig_edad = px.histogram(df_plot, x="EDAD", nbins=10, 
+                                   labels={'EDAD':'Edad'}, 
+                                   color_discrete_sequence=['#00CC96'])
+            st.plotly_chart(fig_edad, use_container_width=True)
+        else:
+            st.warning("Falta columna 'EDAD' para el histograma.")
+
+    with col_bot2:
+        st.subheader("🎓 Nivel Académico / Título")
+        if 'TÍTULO' in df.columns:
+            fig_tit = px.pie(df_plot, names='TÍTULO', 
+                            color_discrete_sequence=px.colors.qualitative.Pastel)
+            st.plotly_chart(fig_tit, use_container_width=True)
+        else:
+            st.info("💡 Columna 'TÍTULO' no encontrada. Pendiente de carga.")
 
 except Exception as e:
-    st.error("⚠️ Error de Conexión o Estructura")
-    st.write(f"No pudimos procesar los datos. Detalle: {e}")
-    st.warning("Asegúrate de que la primera fila de tu Excel tenga los nombres: LEGAJO, APELLIDO Y NOMBRE, PUESTO, ÁREA, EDAD.")
+    st.error(f"Error en la visualización: {e}")
