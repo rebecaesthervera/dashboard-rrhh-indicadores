@@ -59,7 +59,8 @@ try:
         with st.container(border=True):
             st.markdown("<p style='color:#64748B; margin-bottom:5px;'><b>Nómina Activa</b></p>", unsafe_allow_html=True)
             if 'APELLIDO Y NOMBRE' in df_fil.columns:
-                st.dataframe(df_fil[['APELLIDO Y NOMBRE']], hide_index=True, height=430, use_container_width=True)
+                # Aumentamos la altura de la tabla para que coincida con los gráficos grandes
+                st.dataframe(df_fil[['APELLIDO Y NOMBRE']], hide_index=True, height=760, use_container_width=True)
 
     # -- CENTRO --
     with col_centro:
@@ -70,9 +71,10 @@ try:
                 st.markdown("<p style='text-align:center; color:#64748B; background-color:#F1F5F9; padding:5px;'><b>Género</b></p>", unsafe_allow_html=True)
                 if 'GÉNERO' in df_fil.columns and not df_fil['GÉNERO'].isnull().all():
                     fig_g = px.pie(df_fil, names='GÉNERO', hole=0.5, color_discrete_sequence=PALETA_AZUL_GRIS)
-                    # auto: se acomoda solo. hide: oculta si no entra.
-                    fig_g.update_traces(textposition='auto', textinfo='label+percent')
-                    fig_g.update_layout(margin=dict(t=20, b=20, l=20, r=20), height=200, showlegend=False, uniformtext_minsize=10, uniformtext_mode='hide')
+                    # Como son pocas opciones (M/F), ponemos texto grande adentro
+                    fig_g.update_traces(textposition='inside', textinfo='label+percent', textfont_size=15)
+                    # ALTURA AUMENTADA A 350
+                    fig_g.update_layout(margin=dict(t=20, b=20, l=20, r=20), height=350, showlegend=False)
                     st.plotly_chart(fig_g, use_container_width=True, theme=None) 
                 else:
                     st.info("Sin datos")
@@ -82,22 +84,24 @@ try:
                 st.markdown("<p style='text-align:center; color:#64748B; background-color:#F1F5F9; padding:5px;'><b>Categoría</b></p>", unsafe_allow_html=True)
                 if 'CATEGORÍA' in df_fil.columns and not df_fil['CATEGORÍA'].isnull().all():
                     fig_c = px.pie(df_fil, names='CATEGORÍA', hole=0.5, color_discrete_sequence=PALETA_AZUL_GRIS[::-1])
-                    fig_c.update_traces(textposition='auto', textinfo='label+percent')
-                    fig_c.update_layout(margin=dict(t=20, b=20, l=20, r=20), height=200, showlegend=False, uniformtext_minsize=10, uniformtext_mode='hide')
+                    # Como hay MUCHAS categorías, mostramos solo % adentro y activamos la leyenda lateral
+                    fig_c.update_traces(textposition='inside', textinfo='percent', textfont_size=13)
+                    # Leyenda activada y altura aumentada
+                    fig_c.update_layout(margin=dict(t=20, b=20, l=10, r=10), height=350, showlegend=True, legend=dict(title="", orientation="v"))
                     st.plotly_chart(fig_c, use_container_width=True, theme=None)
                 else:
                     st.info("Sin datos")
 
         with st.container(border=True):
             st.markdown("<p style='text-align:center; color:#64748B; background-color:#F1F5F9; padding:5px;'><b>Dotación por Puesto</b></p>", unsafe_allow_html=True)
-            if 'PUESTO' in df_fil.columns and not df_fil['PUESTO'].isnull().all():
+            if 'PUESTO' in df_fil.columns and not df_fil['PUE cliponaxis=False'].isnull().all():
                 df_puesto = df_fil['PUESTO'].value_counts().reset_index()
                 df_puesto.columns = ['PUESTO', 'CANTIDAD']
                 
                 fig_p = px.bar(df_puesto, y='PUESTO', x='CANTIDAD', orientation='h', text='CANTIDAD', color_discrete_sequence=['#3B82F6'])
-                # textposition auto para que no se corten en los bordes
-                fig_p.update_traces(textposition='auto')
-                fig_p.update_layout(yaxis={'categoryorder':'total ascending'}, margin=dict(t=10, b=10, l=10, r=10), height=240, xaxis_title="", yaxis_title="", uniformtext_minsize=10, uniformtext_mode='hide')
+                # Letra tamaño 14 y aseguramos que no se corte (cliponaxis)
+                fig_p.update_traces(textposition='outside', textfont_size=14, cliponaxis=False)
+                fig_p.update_layout(yaxis={'categoryorder':'total ascending'}, margin=dict(t=10, b=10, l=10, r=40), height=350, xaxis_title="", yaxis_title="")
                 st.plotly_chart(fig_p, use_container_width=True, theme=None)
             else:
                 st.info("Sin datos")
@@ -111,8 +115,9 @@ try:
                 df_area.columns = ['ÁREA', 'CANTIDAD']
                 
                 fig_a = px.bar(df_area, x='ÁREA', y='CANTIDAD', text='CANTIDAD', color_discrete_sequence=['#64748B'])
-                fig_a.update_traces(textposition='auto')
-                fig_a.update_layout(margin=dict(t=10, b=10, l=10, r=10), height=220, xaxis_title="", yaxis_title="", uniformtext_minsize=10, uniformtext_mode='hide')
+                # Damos un margen superior de 30 (t=30) para que el número de arriba no choque con el techo
+                fig_a.update_traces(textposition='outside', textfont_size=15, cliponaxis=False)
+                fig_a.update_layout(margin=dict(t=30, b=10, l=10, r=10), height=350, xaxis_title="", yaxis_title="")
                 st.plotly_chart(fig_a, use_container_width=True, theme=None)
             else:
                 st.info("Sin datos")
@@ -121,8 +126,8 @@ try:
             st.markdown("<p style='text-align:center; color:#64748B; background-color:#F1F5F9; padding:5px;'><b>Mapa Estructural</b></p>", unsafe_allow_html=True)
             if 'ÁREA' in df_fil.columns and 'PUESTO' in df_fil.columns:
                 fig_tree = px.treemap(df_fil, path=[px.Constant("Exincor"), 'ÁREA', 'PUESTO'], color_discrete_sequence=PALETA_AZUL_GRIS)
-                fig_tree.update_traces(textinfo="label+value")
-                fig_tree.update_layout(margin=dict(t=10, b=10, l=10, r=10), height=230, uniformtext_minsize=10, uniformtext_mode='hide')
+                fig_tree.update_traces(textinfo="label+value", textfont_size=14)
+                fig_tree.update_layout(margin=dict(t=10, b=10, l=10, r=10), height=350)
                 st.plotly_chart(fig_tree, use_container_width=True, theme=None)
             else:
                 st.info("Faltan datos")
