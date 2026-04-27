@@ -18,23 +18,38 @@ def cargar_datos(gid):
         df.columns = df.columns.str.strip().str.upper()
         df = df.apply(lambda x: x.str.strip() if x.dtype == "object" else x)
         return df
-    except Exception:
+    except:
         return pd.DataFrame()
 
+# Función para limpiar y convertir fechas (maneja el 0:00:00 y formatos varios)
+def limpiar_fecha(df, col):
+    if col in df.columns:
+        s = df[col].astype(str).str.replace(r'\s+.*', '', regex=True).str.strip()
+        return pd.to_datetime(s, format='%d/%m/%Y', errors='coerce')
+    return pd.Series([pd.NaT] * len(df))
+
 try:
-    df_main = cargar_datos("1543772338") # Hoja principal
-    df_cump = cargar_datos("540729566")  # Hoja cumpleaños
+    # CARGA DE DATOS
+    df_main = cargar_datos("1543772338")
+    df_cump = cargar_datos("540729566")
     
     if not df_main.empty and 'LEGAJO' in df_main.columns:
         df_main = df_main.dropna(subset=['LEGAJO'])
 
-    st.markdown("<h1 style='color: #1E3A8A;'>Gestión de RRHH Exincor</h1>", unsafe_allow_html=True)
+    # --- ENCABEZADO ---
+    col_logo, col_titulo = st.columns([1, 4])
+    with col_logo:
+        archivos = [f for f in os.listdir('.') if f.lower().endswith(('.png', '.jpg', '.jpeg')) and 'app' not in f]
+        if archivos: st.image(archivos[0], width=150)
+    with col_titulo:
+        st.markdown("<h1 style='color: #1E3A8A; margin-top: 10px;'>Gestión de RRHH Exincor</h1>", unsafe_allow_html=True)
+    
     st.markdown("---")
 
     tab1, tab2 = st.tabs(["📊 Panel de Dotación", "📅 Efemérides y Aniversarios"])
 
     with tab1:
-        # --- PANEL DE DOTACIÓN (7 Indicadores) ---
+        # --- FILTROS ---
         col_f1, col_f2, col_f3, col_f4, col_f5 = st.columns(5)
         def get_opts(df, col, d="Todos"):
             return [d] + sorted(df[col].dropna().unique().tolist()) if col in df.columns else [d]
@@ -53,81 +68,87 @@ try:
         if sel_area != "Todas": df_fil = df_fil[df_fil['ÁREA'] == sel_area]
         if sel_nombre != "Todos": df_fil = df_fil[df_fil['APELLIDO Y NOMBRE'] == sel_nombre]
 
+        # --- PANEL DE 7 INDICADORES ---
         c_met, c_graf = st.columns([1.2, 3.8])
         with c_met:
             st.metric("Total Activos", len(df_fil))
-            if 'APELLIDO Y NOMBRE' in df_fil.columns: st.dataframe(df_fil[['APELLIDO Y NOMBRE']], hide_index=True, height=600)
+            st.dataframe(df_fil[['APELLIDO Y NOMBRE']], hide_index=True, height=650)
         
         with c_graf:
+            # 4 Anillos superiores
             i1, i2, i3, i4 = st.columns(4)
-            for ui, c, t in zip([i1, i2, i3, i4], ['GÉNERO', 'CATEGORÍA', tipo_col, 'CENTRO DE COSTOS'], ['Género', 'Categoría', 'Contratación', 'C. Costos']):
-                if c in df_fil.columns:
-                    ui.plotly_chart(px.pie(df_fil[c].value_counts().reset_index(), names=c, values='count', hole=0.6, color_discrete_sequence=PALETA_AZUL_GRIS).update_layout(height=180, showlegend=False, title=t), use_container_width=True)
+            columnas_pie = ['GÉNERO', 'CATEGORÍA', tipo_col, 'CENTRO DE COSTOS']
+            titulos_pie = ['Género', 'Categoría', 'Contratación', 'C. Costos']
             
+            for ui, col_p, tit_p in zip([i1, i2, i3, i4], columnas_pie, titulos_pie):
+                if col_p in df_fil.columns and not df_fil[col_p].empty:
+                    d_pie = df_fil[col_p].value_counts().reset_index()
+                    fig = px.pie(d_pie, names=col_p, values='count', hole=0.6, color_discrete_sequence=PALETA_AZUL_GRIS)
+                    fig.update_layout(height=180, margin=dict(t=30, b=0, l=0, r=0), showlegend=False, title={'text': tit_p, 'x': 0.5})
+                    ui.plotly_chart(fig, use_container_width=True)
+            
+            # Puestos
             if 'PUESTO' in df_fil.columns:
-                st.plotly_chart(px.bar(df_fil['PUESTO'].value_counts().reset_index(), x='PUESTO', y='count', color_discrete_sequence=['#3B82F6'], title="Puestos").update_layout(height=250), use_container_width=True)
+                fig_bar_p = px.bar(df_fil['PUESTO'].value_counts().reset_index(), x='PUESTO', y='count', text='count', color_discrete_sequence=['#3B82F6'], title="Puestos")
+                fig_bar_p.update_layout(height=280)
+                st.plotly_chart(fig_bar_p, use_container_width=True)
             
-            r1, r2 = st.columns([2, 1])
-            if 'RESPONSABLE DIRECTO' in df_fil.columns: r1.plotly_chart(px.bar(df_fil['RESPONSABLE DIRECTO'].value_counts().reset_index(), x='RESPONSABLE DIRECTO', y='count', color_discrete_sequence=['#1E3A8A'], title="Responsables").update_layout(height=230), use_container_width=True)
-            if 'ÁREA' in df_fil.columns: r2.plotly_chart(px.bar(df_fil['ÁREA'].value_counts().reset_index(), x='ÁREA', y='count', color_discrete_sequence=['#64748B'], title="Áreas").update_layout(height=230), use_container_width=True)
+            # Responsables y Áreas
+            r_col1, r_col2 = st.columns([2, 1])
+            if 'RESPONSABLE DIRECTO' in df_fil.columns:
+                fig_r = px.bar(df_fil['RESPONSABLE DIRECTO'].value_counts().reset_index(), x='RESPONSABLE DIRECTO', y='count', text='count', color_discrete_sequence=['#1E3A8A'], title="Responsables")
+                r_col1.plotly_chart(fig_r.update_layout(height=250), use_container_width=True)
+            if 'ÁREA' in df_fil.columns:
+                fig_a = px.bar(df_fil['ÁREA'].value_counts().reset_index(), x='ÁREA', y='count', text='count', color_discrete_sequence=['#64748B'], title="Áreas")
+                r_col2.plotly_chart(fig_a.update_layout(height=250), use_container_width=True)
 
     with tab2:
-        # --- SELECTOR DE MES DINÁMICO ---
-        meses_nombres = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"]
-        mes_hoy = datetime.now().month
-        
-        col_mes, _ = st.columns([2, 3])
-        mes_sel = col_mes.selectbox("Seleccionar mes para consultar efemérides:", range(1, 13), format_func=lambda x: meses_nombres[x-1], index=mes_hoy-1)
+        # --- CONFIGURACIÓN DINÁMICA DE MESES ---
+        meses = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"]
+        sel_mes = st.selectbox("Seleccionar mes de consulta", range(1, 13), format_func=lambda x: meses[x-1], index=datetime.now().month-1)
 
+        # Preparar fechas
         col_f_nac = 'FECHA NACIMIENTO'
-        col_f_ing = next((c for c in df_main.columns if 'INGRESO' in c or 'ALTA' in c), 'FECHA INGRESO')
+        col_f_ing = next((c for c in df_main.columns if 'INGRESO' in c or 'ALTA' in c), None)
+        
+        df_cump['DT_NAC'] = limpiar_fecha(df_cump, col_f_nac)
+        df_main['DT_ING'] = limpiar_fecha(df_main, col_f_ing)
 
-        # Procesar fechas con limpieza de horas
-        def clean_date(df, col):
-            if col in df.columns:
-                s = df[col].astype(str).str.replace(r'\s+.*', '', regex=True).str.strip()
-                return pd.to_datetime(s, format='%d/%m/%Y', errors='coerce')
-            return pd.Series([pd.NaT] * len(df))
+        st.subheader(f"Efemérides de {meses[sel_mes-1]}")
+        sub_tab_vida, sub_tab_laboral = st.tabs(["🎂 Cumpleaños Personales", "🎖️ Aniversarios en la Empresa"])
 
-        df_cump['DT_NAC'] = clean_date(df_cump, col_f_nac)
-        df_main['DT_ING'] = clean_date(df_main, col_f_ing)
-
-        st.subheader(f"Efemérides de {meses_nombres[mes_sel-1]}")
-        sub1, sub2 = st.tabs(["🎂 Cumpleaños de Vida", "🎖️ Aniversarios Laborales"])
-
-        with sub1:
-            # Filtramos por el mes seleccionado
-            c_vida = df_cump[df_cump['DT_NAC'].dt.month == mes_sel].copy()
-            if not c_vida.empty:
-                c_vida['DIA'] = c_vida['DT_NAC'].dt.day
-                for _, r in c_vida.sort_values('DIA').iterrows():
+        with sub_tab_vida:
+            df_v = df_cump[df_cump['DT_NAC'].dt.month == sel_mes].copy()
+            if not df_v.empty:
+                df_v['DIA'] = df_v['DT_NAC'].dt.day
+                for _, r in df_v.sort_values('DIA').iterrows():
                     with st.container(border=True):
-                        c_a, c_b = st.columns([1, 5])
-                        c_a.markdown(f"<h2 style='text-align:center;'>{int(r['DIA'])}</h2>", unsafe_allow_html=True)
-                        c_b.markdown(f"**{r['APELLIDO Y NOMBRE']}**")
-                        # Buscar trayectoria en la base principal
+                        c_d, c_n = st.columns([1, 5])
+                        c_d.markdown(f"<h2 style='text-align:center;'>{int(r['DIA'])}</h2>", unsafe_allow_html=True)
+                        c_n.markdown(f"**{r['APELLIDO Y NOMBRE']}**")
+                        # Trayectoria cruzada
                         m = df_main[df_main['APELLIDO Y NOMBRE'] == r['APELLIDO Y NOMBRE']]
                         if not m.empty and not pd.isnull(m['DT_ING'].values[0]):
                             ant = datetime.now().year - pd.to_datetime(m['DT_ING'].values[0]).year
-                            c_b.caption(f"Trayectoria en la empresa: {ant} años")
+                            c_n.caption(f"⭐ Trayectoria: {max(0, ant)} años")
             else:
-                st.info(f"No hay cumpleaños de vida registrados en {meses_nombres[mes_sel-1]}")
+                st.info(f"No hay cumpleaños de vida en {meses[sel_mes-1]}")
 
-        with sub2:
-            # Filtramos aniversarios de ingreso por el mes seleccionado
-            c_lab = df_main[df_main['DT_ING'].dt.month == mes_sel].copy()
-            if not c_lab.empty:
-                c_lab['DIA'] = c_lab['DT_ING'].dt.day
-                for _, r in c_lab.sort_values('DIA').iterrows():
-                    with st.container(border=True):
-                        c_a, c_b = st.columns([1, 5])
-                        ant = datetime.now().year - r['DT_ING'].year
-                        c_a.markdown(f"<h2 style='text-align:center;'>{int(r['DIA'])}</h2>", unsafe_allow_html=True)
-                        c_b.markdown(f"**{r['APELLIDO Y NOMBRE']}**")
-                        c_b.success(f"🎊 ¡Cumple {ant} años en la empresa!")
-                        c_b.caption(f"Ingresó el: {r[col_f_ing]}")
-            else:
-                st.info(f"No hay aniversarios laborales en {meses_nombres[mes_sel-1]}")
+        with sub_tab_laboral:
+            if col_f_ing:
+                df_l = df_main[df_main['DT_ING'].dt.month == sel_mes].copy()
+                if not df_l.empty:
+                    df_l['DIA'] = df_l['DT_ING'].dt.day
+                    for _, r in df_l.sort_values('DIA').iterrows():
+                        with st.container(border=True):
+                            c_d, c_n = st.columns([1, 5])
+                            ant_lab = datetime.now().year - r['DT_ING'].year
+                            c_d.markdown(f"<h2 style='text-align:center;'>{int(r['DIA'])}</h2>", unsafe_allow_html=True)
+                            c_n.markdown(f"**{r['APELLIDO Y NOMBRE']}**")
+                            c_n.success(f"🎊 ¡Cumple {ant_lab} años en la empresa!")
+                            c_n.caption(f"Fecha de ingreso: {r[col_f_ing]}")
+                else:
+                    st.info(f"No hay aniversarios laborales en {meses[sel_mes-1]}")
 
 except Exception as e:
-    st.error(f"Error: {e}")
+    st.error(f"Error general: {e}")
