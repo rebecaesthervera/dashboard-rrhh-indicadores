@@ -15,7 +15,6 @@ def cargar_datos(gid):
     try:
         sheet_url = f"https://docs.google.com/spreadsheets/d/1ElY2OaVFq3GzNiWoe69HCtnmQZe8rEK7/export?format=csv&gid={gid}"
         df = pd.read_csv(sheet_url)
-        # Limpieza de nombres de columnas
         df.columns = df.columns.str.strip().str.upper()
         return df
     except:
@@ -23,8 +22,8 @@ def cargar_datos(gid):
 
 try:
     # CARGA DE DATOS
-    df_main = cargar_datos("1543772338") # Hoja principal
-    df_cump = cargar_datos("540729566")  # Hoja cumpleaños
+    df_main = cargar_datos("1543772338")
+    df_cump = cargar_datos("540729566")
     
     if not df_main.empty and 'LEGAJO' in df_main.columns:
         df_main = df_main.dropna(subset=['LEGAJO'])
@@ -36,8 +35,6 @@ try:
         imagen_logo = next((f for f in archivos if f.lower().endswith(('.png', '.jpg', '.jpeg')) and 'app' not in f), None)
         if imagen_logo:
             st.image(imagen_logo, width=150)
-        else:
-            st.info("ℹ️ Sube el logo")
 
     with col_titulo:
         st.markdown("<h1 style='color: #1E3A8A; margin-top: 10px;'>Gestión de RRHH Exincor</h1>", unsafe_allow_html=True)
@@ -74,71 +71,79 @@ try:
         if 'ÁREA' in df_fil.columns and sel_area != "Todas": df_fil = df_fil[df_fil['ÁREA'] == sel_area]
         if 'APELLIDO Y NOMBRE' in df_fil.columns and sel_nombre != "Todos": df_fil = df_fil[df_fil['APELLIDO Y NOMBRE'] == sel_nombre]
 
-        # --- PANEL PRINCIPAL ---
+        # --- CUERPO (7 INDICADORES) ---
         c_met, c_graf = st.columns([1.2, 3.8])
         with c_met:
             st.metric("Total Activos", len(df_fil))
-            st.dataframe(df_fil[['APELLIDO Y NOMBRE']], hide_index=True, height=550)
+            st.dataframe(df_fil[['APELLIDO Y NOMBRE']], hide_index=True, height=650)
 
         with c_graf:
-            # Gráficos de anillo
+            # 1, 2, 3 y 4: Anillos superiores
             c1, c2, c3, c4 = st.columns(4)
-            columnas = ['GÉNERO', 'CATEGORÍA', tipo_col, 'CENTRO DE COSTOS']
-            titulos = ['Género', 'Categoría', 'Contratación', 'Centro Costos']
-            for ui, col_db, tit in zip([c1, c2, c3, c4], columnas, titulos):
+            cols_anillo = ['GÉNERO', 'CATEGORÍA', tipo_col, 'CENTRO DE COSTOS']
+            tits_anillo = ['Género', 'Categoría', 'Contratación', 'C. Costos']
+            for ui, db_col, tit in zip([c1, c2, c3, c4], cols_anillo, tits_anillo):
                 with ui:
-                    if col_db in df_fil.columns:
-                        d_pie = df_fil[col_db].value_counts().reset_index()
-                        fig = px.pie(d_pie, names=col_db, values='count', hole=0.6, color_discrete_sequence=PALETA_AZUL_GRIS)
+                    if db_col in df_fil.columns:
+                        d_p = df_fil[db_col].value_counts().reset_index()
+                        fig = px.pie(d_p, names=db_col, values='count', hole=0.6, color_discrete_sequence=PALETA_AZUL_GRIS)
                         fig.update_layout(height=180, margin=dict(t=30, b=0, l=0, r=0), showlegend=False, title={'text': tit, 'x': 0.5})
                         st.plotly_chart(fig, use_container_width=True)
 
-            # Gráfico de Barras de Responsables (CORREGIDO)
-            if 'RESPONSABLE DIRECTO' in df_fil.columns:
-                d_resp = df_fil['RESPONSABLE DIRECTO'].value_counts().reset_index()
-                fig_resp = px.bar(d_resp, x='RESPONSABLE DIRECTO', y='count', text='count', 
-                                  color_discrete_sequence=['#1E3A8A'], title="Distribución por Responsable")
-                fig_resp.update_layout(height=300)
-                st.plotly_chart(fig_resp, use_container_width=True)
+            # 5: Gráfico de Puestos (Barras verticales)
+            if 'PUESTO' in df_fil.columns:
+                df_p = df_fil['PUESTO'].value_counts().reset_index()
+                fig_p = px.bar(df_p, x='PUESTO', y='count', text='count', color_discrete_sequence=['#3B82F6'], title="Dotación por Puesto")
+                fig_p.update_layout(height=280, xaxis_title="", yaxis_title="")
+                st.plotly_chart(fig_p, use_container_width=True)
+
+            # 6 y 7: Responsables y Áreas
+            cl1, cl2 = st.columns([2, 1])
+            with cl1:
+                if 'RESPONSABLE DIRECTO' in df_fil.columns:
+                    d_r = df_fil['RESPONSABLE DIRECTO'].value_counts().reset_index()
+                    fig_r = px.bar(d_r, x='RESPONSABLE DIRECTO', y='count', text='count', color_discrete_sequence=['#1E3A8A'], title="Responsables")
+                    fig_r.update_layout(height=250)
+                    st.plotly_chart(fig_r, use_container_width=True)
+            with cl2:
+                if 'ÁREA' in df_fil.columns:
+                    d_a = df_fil['ÁREA'].value_counts().reset_index()
+                    fig_a = px.bar(d_a, x='ÁREA', y='count', text='count', color_discrete_sequence=['#64748B'], title="Áreas")
+                    fig_a.update_layout(height=250)
+                    st.plotly_chart(fig_a, use_container_width=True)
 
     with tab2:
         st.subheader("🎂 Cumpleaños y Trayectoria del Mes")
-        
-        col_fecha_nac = next((c for c in df_cump.columns if 'FECHA' in c or 'NACIMIENTO' in c), None)
-        col_fecha_ing = next((c for c in df_main.columns if 'INGRESO' in c or 'ALTA' in c), None)
+        col_f_nac = next((c for c in df_cump.columns if 'FECHA' in c or 'NACIMIENTO' in c), None)
+        col_f_ing = next((c for c in df_main.columns if 'INGRESO' in c or 'ALTA' in c), None)
 
-        if col_fecha_nac and not df_cump.empty:
-            df_cump['FECHA_NAC'] = pd.to_datetime(df_cump[col_fecha_nac], errors='coerce', dayfirst=True)
+        if col_f_nac and not df_cump.empty:
+            df_cump['FECHA_NAC'] = pd.to_datetime(df_cump[col_f_nac], errors='coerce', dayfirst=True)
             hoy = datetime.now()
-            
-            # Filtro del mes actual
             df_mes = df_cump[df_cump['FECHA_NAC'].dt.month == hoy.month].copy()
             
             if not df_mes.empty:
                 df_mes['DIA'] = df_mes['FECHA_NAC'].dt.day
                 df_mes = df_mes.sort_values('DIA')
                 
-                cols = st.columns(3)
+                cols_c = st.columns(3)
                 for idx, row in df_mes.reset_index().iterrows():
-                    with cols[idx % 3]:
+                    with cols_c[idx % 3]:
                         with st.container(border=True):
                             st.markdown(f"### 📅 Día {int(row['DIA'])}")
                             st.markdown(f"**{row['APELLIDO Y NOMBRE']}**")
                             
-                            # Buscar antigüedad en la hoja principal
-                            if col_fecha_ing:
+                            if col_f_ing:
                                 m = df_main[df_main['APELLIDO Y NOMBRE'] == row['APELLIDO Y NOMBRE']]
                                 if not m.empty:
-                                    f_i = pd.to_datetime(m[col_fecha_ing].values[0], errors='coerce')
+                                    f_i = pd.to_datetime(m[col_f_ing].values[0], errors='coerce')
                                     if not pd.isnull(f_i):
                                         ant = hoy.year - f_i.year - ((hoy.month, hoy.day) < (f_i.month, f_i.day))
-                                        st.write(f"⭐ Trayectoria: **{max(0, ant)} años**")
-                                        if ant >= 10: st.success("🏆 Veterano")
-                            
+                                        st.markdown(f"⭐ **Trayectoria:** {max(0, ant)} años")
                             st.divider()
-                            st.button("Saludar ✨", key=f"btn_c_{idx}", use_container_width=True)
+                            st.button("Felicitar ✨", key=f"btn_final_{idx}", use_container_width=True)
             else:
-                st.info("No hay cumpleaños registrados este mes.")
+                st.info("No hay cumpleaños este mes.")
 
 except Exception as e:
-    st.error(f"Se produjo un error en la aplicación: {e}")
+    st.error(f"Error en la aplicación: {e}")
