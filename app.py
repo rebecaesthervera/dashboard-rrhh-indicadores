@@ -5,7 +5,7 @@ from datetime import datetime
 import os
 
 # 1. CONFIGURACIÓN DE PÁGINA
-st.set_page_config(page_title="Gestión Exincor", layout="wide")
+st.set_page_config(page_title="Gestión RRHH Exincor", layout="wide")
 
 # 2. COLORES CORPORATIVOS
 PALETA_AZUL_GRIS = ['#1E3A8A', '#64748B', '#3B82F6', '#94A3B8', '#1D4ED8', '#CBD5E1', '#0F172A']
@@ -13,15 +13,18 @@ PALETA_AZUL_GRIS = ['#1E3A8A', '#64748B', '#3B82F6', '#94A3B8', '#1D4ED8', '#CBD
 @st.cache_data(ttl=60)
 def cargar_datos(gid):
     try:
-        sheet_url = f"https://docs.google.com/spreadsheets/d/1ElY2OaVFq3GzNiWoe69HCtnmQZe8rEK7/export?format=csv&gid={gid}"
+        # Limpiamos el GID por si viene con basura del enlace
+        gid_limpio = str(gid).split('#')[-1].replace('gid=', '')
+        sheet_url = f"https://docs.google.com/spreadsheets/d/1ElY2OaVFq3GzNiWoe69HCtnmQZe8rEK7/export?format=csv&gid={gid_limpio}"
         df = pd.read_csv(sheet_url)
         df.columns = df.columns.str.strip().str.upper()
         return df
-    except:
+    except Exception as e:
+        st.error(f"Error cargando hoja {gid}: {e}")
         return pd.DataFrame()
 
 try:
-    # CARGA DE DATOS
+    # CARGA DE DATOS (IDs confirmados por tu enlace)
     df_main = cargar_datos("1543772338")
     df_cump = cargar_datos("540729566")
     
@@ -78,7 +81,7 @@ try:
             st.dataframe(df_fil[['APELLIDO Y NOMBRE']], hide_index=True, height=650)
 
         with c_graf:
-            # 1, 2, 3 y 4: Anillos superiores
+            # Indicadores 1, 2, 3 y 4: Anillos
             c1, c2, c3, c4 = st.columns(4)
             cols_anillo = ['GÉNERO', 'CATEGORÍA', tipo_col, 'CENTRO DE COSTOS']
             tits_anillo = ['Género', 'Categoría', 'Contratación', 'C. Costos']
@@ -90,14 +93,14 @@ try:
                         fig.update_layout(height=180, margin=dict(t=30, b=0, l=0, r=0), showlegend=False, title={'text': tit, 'x': 0.5})
                         st.plotly_chart(fig, use_container_width=True)
 
-            # 5: Gráfico de Puestos (Barras verticales)
+            # Indicador 5: Puestos
             if 'PUESTO' in df_fil.columns:
                 df_p = df_fil['PUESTO'].value_counts().reset_index()
                 fig_p = px.bar(df_p, x='PUESTO', y='count', text='count', color_discrete_sequence=['#3B82F6'], title="Dotación por Puesto")
                 fig_p.update_layout(height=280, xaxis_title="", yaxis_title="")
                 st.plotly_chart(fig_p, use_container_width=True)
 
-            # 6 y 7: Responsables y Áreas
+            # Indicadores 6 y 7: Responsables y Áreas
             cl1, cl2 = st.columns([2, 1])
             with cl1:
                 if 'RESPONSABLE DIRECTO' in df_fil.columns:
@@ -114,12 +117,17 @@ try:
 
     with tab2:
         st.subheader("🎂 Cumpleaños y Trayectoria del Mes")
+        
+        # Identificar columnas de fecha
         col_f_nac = next((c for c in df_cump.columns if 'FECHA' in c or 'NACIMIENTO' in c), None)
         col_f_ing = next((c for c in df_main.columns if 'INGRESO' in c or 'ALTA' in c), None)
 
         if col_f_nac and not df_cump.empty:
+            # Convertimos a fecha asegurando el formato día/mes/año
             df_cump['FECHA_NAC'] = pd.to_datetime(df_cump[col_f_nac], errors='coerce', dayfirst=True)
             hoy = datetime.now()
+            
+            # Filtrar por mes actual
             df_mes = df_cump[df_cump['FECHA_NAC'].dt.month == hoy.month].copy()
             
             if not df_mes.empty:
@@ -133,6 +141,7 @@ try:
                             st.markdown(f"### 📅 Día {int(row['DIA'])}")
                             st.markdown(f"**{row['APELLIDO Y NOMBRE']}**")
                             
+                            # Buscar antigüedad cruzando con la hoja principal
                             if col_f_ing:
                                 m = df_main[df_main['APELLIDO Y NOMBRE'] == row['APELLIDO Y NOMBRE']]
                                 if not m.empty:
@@ -140,10 +149,13 @@ try:
                                     if not pd.isnull(f_i):
                                         ant = hoy.year - f_i.year - ((hoy.month, hoy.day) < (f_i.month, f_i.day))
                                         st.markdown(f"⭐ **Trayectoria:** {max(0, ant)} años")
+                            
                             st.divider()
-                            st.button("Felicitar ✨", key=f"btn_final_{idx}", use_container_width=True)
+                            st.button("Felicitar ✨", key=f"btn_cump_{idx}", use_container_width=True)
             else:
-                st.info("No hay cumpleaños este mes.")
+                st.info(f"No se encontraron cumpleaños para el mes de {hoy.strftime('%B')}.")
+        else:
+            st.warning("No se detectó la columna de fechas en la pestaña de cumpleaños.")
 
 except Exception as e:
-    st.error(f"Error en la aplicación: {e}")
+    st.error(f"Ocurrió un error general: {e}")
