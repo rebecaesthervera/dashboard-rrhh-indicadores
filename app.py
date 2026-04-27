@@ -32,12 +32,16 @@ try:
     df_cump = cargar_datos("540729566")
     hoy = datetime.now()
 
-    # --- LÓGICA DE GLOBOS ---
+    # --- LÓGICA DE GLOBOS (CUMPLEAÑOS DE VIDA U HOY) ---
     col_f_nac = 'FECHA NACIMIENTO'
     df_cump['DT_NAC'] = limpiar_fecha(df_cump, col_f_nac)
+    
+    # Verificamos si alguien cumple años de vida HOY
     cumple_hoy = df_cump[(df_cump['DT_NAC'].dt.month == hoy.month) & (df_cump['DT_NAC'].dt.day == hoy.day)]
     if not cumple_hoy.empty:
         st.balloons()
+        for _, r in cumple_hoy.iterrows():
+            st.toast(f"🎂 ¡Hoy es el cumpleaños de {r['APELLIDO Y NOMBRE']}!", icon="🎉")
 
     # --- ENCABEZADO ---
     col_logo, col_titulo = st.columns([1, 4])
@@ -51,7 +55,7 @@ try:
     tab1, tab2 = st.tabs(["📊 Panel de Dotación", "📅 Efemérides y Aniversarios"])
 
     with tab1:
-        # FILTROS
+        # --- FILTROS (MANTENEMOS TU PANEL TAL CUAL) ---
         col_f1, col_f2, col_f3, col_f4, col_f5 = st.columns(5)
         def get_opts(df, col, d="Todos"):
             return [d] + sorted(df[col].dropna().unique().tolist()) if col in df.columns else [d]
@@ -70,14 +74,12 @@ try:
         if sel_area != "Todas": df_fil = df_fil[df_fil['ÁREA'] == sel_area]
         if sel_nombre != "Todos": df_fil = df_fil[df_fil['APELLIDO Y NOMBRE'] == sel_nombre]
 
-        # CUERPO - 7 INDICADORES (Anchos corregidos)
-        c_izq, c_der = st.columns([1, 4])
-        with c_izq:
+        c_met, c_graf = st.columns([1.2, 3.8])
+        with c_met:
             st.metric("Total Activos", len(df_fil))
-            st.dataframe(df_fil[['APELLIDO Y NOMBRE']], hide_index=True, height=600, use_container_width=True)
+            st.dataframe(df_fil[['APELLIDO Y NOMBRE']], hide_index=True, height=600)
         
-        with c_der:
-            # 4 Anillos
+        with c_graf:
             i1, i2, i3, i4 = st.columns(4)
             for ui, c, t in zip([i1, i2, i3, i4], ['GÉNERO', 'CATEGORÍA', tipo_col, 'CENTRO DE COSTOS'], ['Género', 'Categoría', 'Contratación', 'C. Costos']):
                 if c in df_fil.columns:
@@ -85,12 +87,10 @@ try:
                     fig.update_layout(height=220, margin=dict(t=30, b=0, l=0, r=0), showlegend=False, title={'text': t, 'x': 0.5})
                     ui.plotly_chart(fig, use_container_width=True)
             
-            # Puestos (Grande)
             if 'PUESTO' in df_fil.columns:
                 fig_p = px.bar(df_fil['PUESTO'].value_counts().reset_index(), x='PUESTO', y='count', text='count', color_discrete_sequence=['#3B82F6'], title="Puestos")
                 st.plotly_chart(fig_p.update_layout(height=300), use_container_width=True)
             
-            # Responsables y Áreas
             r1, r2 = st.columns([2, 1])
             if 'RESPONSABLE DIRECTO' in df_fil.columns:
                 r1.plotly_chart(px.bar(df_fil['RESPONSABLE DIRECTO'].value_counts().reset_index(), x='RESPONSABLE DIRECTO', y='count', text='count', color_discrete_sequence=['#1E3A8A'], title="Responsables").update_layout(height=250), use_container_width=True)
@@ -98,6 +98,7 @@ try:
                 r2.plotly_chart(px.bar(df_fil['ÁREA'].value_counts().reset_index(), x='ÁREA', y='count', text='count', color_discrete_sequence=['#64748B'], title="Áreas").update_layout(height=250), use_container_width=True)
 
     with tab2:
+        # --- PESTAÑA EFEMÉRIDES DINÁMICA ---
         meses = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"]
         sel_mes = st.selectbox("Seleccionar mes de consulta", range(1, 13), format_func=lambda x: meses[x-1], index=hoy.month-1)
         
@@ -105,17 +106,17 @@ try:
         df_main['DT_ING'] = limpiar_fecha(df_main, col_f_ing)
 
         st.subheader(f"Efemérides de {meses[sel_mes-1]}")
-        t1, t2 = st.tabs(["🎂 Cumpleaños de Vida", "🎖️ Aniversarios Laborales"])
+        t_vida, t_lab = st.tabs(["🎂 Cumpleaños de Vida", "🎖️ Aniversarios Laborales"])
 
-        with t1:
+        with t_vida:
             df_v = df_cump[df_cump['DT_NAC'].dt.month == sel_mes].copy()
             if not df_v.empty:
                 df_v['DIA'] = df_v['DT_NAC'].dt.day
-                rows = [df_v.iloc[i:i+3] for i in range(0, len(df_v), 3)]
-                for row_df in rows:
+                df_v = df_v.sort_values('DIA')
+                for i in range(0, len(df_v), 3):
                     cols = st.columns(3)
-                    for i, (_, r) in enumerate(row_df.iterrows()):
-                        with cols[i]:
+                    for j, (_, r) in enumerate(df_v.iloc[i:i+3].iterrows()):
+                        with cols[j]:
                             with st.container(border=True):
                                 st.markdown(f"### 📅 Día {int(r['DIA'])}")
                                 st.markdown(f"**{r['APELLIDO Y NOMBRE']}**")
@@ -123,24 +124,29 @@ try:
                                 if not m.empty and not pd.isnull(m['DT_ING'].values[0]):
                                     ant = hoy.year - pd.to_datetime(m['DT_ING'].values[0]).year
                                     st.caption(f"⭐ Trayectoria: {int(ant)} años")
-            else: st.info("No hay cumpleaños este mes.")
+            else: st.info("No hay cumpleaños en este mes.")
 
-        with t2:
+        with t_lab:
+            # FILTRO: Personas que cumplen años de ingreso en el mes seleccionado
             df_l = df_main[df_main['DT_ING'].dt.month == sel_mes].copy()
             if not df_l.empty:
+                # Calculamos antigüedad real y ordenamos (Veteranos primero)
                 df_l['ANTIGUEDAD'] = hoy.year - df_l['DT_ING'].dt.year
                 df_l = df_l.sort_values('ANTIGUEDAD', ascending=False)
-                rows_l = [df_l.iloc[i:i+3] for i in range(0, len(df_l), 3)]
-                for row_df in rows_l:
+                
+                for i in range(0, len(df_l), 3):
                     cols = st.columns(3)
-                    for i, (_, r) in enumerate(row_df.iterrows()):
-                        with cols[i]:
+                    for j, (_, r) in enumerate(df_l.iloc[i:i+3].iterrows()):
+                        with cols[j]:
                             with st.container(border=True):
+                                # Día del ingreso
                                 st.markdown(f"### 📅 Día {int(r['DT_ING'].day)}")
                                 st.markdown(f"**{r['APELLIDO Y NOMBRE']}**")
-                                if r['ANTIGUEDAD'] > 0: st.success(f"🎊 ¡Cumple {int(r['ANTIGUEDAD'])} años!")
-                                else: st.info("🌱 Ingreso este año")
+                                if r['ANTIGUEDAD'] > 0:
+                                    st.success(f"🎊 ¡Cumple {int(r['ANTIGUEDAD'])} años!")
+                                else:
+                                    st.info("🌱 Ingreso este año")
                                 st.caption(f"Desde: {r['DT_ING'].strftime('%d/%m/%Y')}")
-            else: st.info("No hay aniversarios este mes.")
+            else: st.info("No hay aniversarios laborales este mes.")
 except Exception as e:
     st.error(f"Error: {e}")
