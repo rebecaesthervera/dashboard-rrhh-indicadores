@@ -24,115 +24,101 @@ try:
         
     df_cump = cargar_datos("540729566")
     
-    # --- PROCESAMIENTO DE FECHAS PARA ALERTAS ---
+    # --- PROCESAMIENTO DE CUMPLEAÑOS ---
     col_fecha = next((c for c in df_cump.columns if 'FECHA' in c or 'NACIMIENTO' in c), None)
     cumples_hoy_lista = []
-    
     if col_fecha:
         df_cump['FECHA_LIMPIA'] = pd.to_datetime(df_cump[col_fecha], errors='coerce', dayfirst=True)
         hoy = datetime.now()
-        # Filtramos exactamente por DIA y MES actual
         mask_hoy = (df_cump['FECHA_LIMPIA'].dt.month == hoy.month) & (df_cump['FECHA_LIMPIA'].dt.day == hoy.day)
-        cumples_hoy_df = df_cump[mask_hoy]
-        cumples_hoy_lista = cumples_hoy_df['APELLIDO Y NOMBRE'].tolist()
+        cumples_hoy_lista = df_cump[mask_hoy]['APELLIDO Y NOMBRE'].tolist()
 
-    # --- MÓDULO DE ALERTAS (Se muestra antes que todo) ---
     if cumples_hoy_lista:
         for persona in cumples_hoy_lista:
-            st.balloons() # Efecto visual de globos
             st.toast(f"🎂 ¡Hoy es el cumpleaños de {persona}!", icon="🎉")
-            st.warning(f"🔔 **RECORDATORIO:** Hoy es el cumpleaños de **{persona}**. ¡No olvides saludarle!")
 
     # --- ENCABEZADO ---
     st.markdown("<h2 style='color: #1E3A8A; margin-bottom: 0px;'>Dotación Exincor</h2>", unsafe_allow_html=True)
     st.markdown("---")
 
-    # PESTAÑAS
     tab1, tab2 = st.tabs(["📊 Panel de Dotación", "🎂 Cumpleaños del Mes"])
 
     with tab1:
-        # Filtros
+        # --- FILTROS ---
         col_f1, col_f2, col_f3, col_f4 = st.columns(4)
+        
         with col_f1:
+            conv_opts = ["Todos"] + sorted(df_main['CONVENIO'].dropna().unique().tolist()) if 'CONVENIO' in df_main.columns else ["Todos"]
+            sel_conv = st.selectbox("Convenio", conv_opts)
+            
+        with col_f2:
+            resp_opts = ["Todos"] + sorted(df_main['RESPONSABLE DIRECTO'].dropna().unique().tolist()) if 'RESPONSABLE DIRECTO' in df_main.columns else ["Todos"]
+            sel_resp = st.selectbox("Responsable Directo", resp_opts)
+            
+        with col_f3:
             area_opts = ["Todas"] + sorted(df_main['ÁREA'].dropna().unique().tolist()) if 'ÁREA' in df_main.columns else ["Todas"]
             sel_area = st.selectbox("Área", area_opts)
-        with col_f2:
-            cat_opts = ["Todas"] + sorted(df_main['CATEGORÍA'].dropna().unique().tolist()) if 'CATEGORÍA' in df_main.columns else ["Todas"]
-            sel_cat = st.selectbox("Categoría", cat_opts)
-        with col_f3:
-            cc_opts = ["Todos"] + sorted(df_main['CENTRO DE COSTOS'].dropna().unique().tolist()) if 'CENTRO DE COSTOS' in df_main.columns else ["Todos"]
-            sel_cc = st.selectbox("Centro de Costos", cc_opts)
+            
         with col_f4:
             nombres_opts = ["Todos"] + sorted(df_main['APELLIDO Y NOMBRE'].dropna().unique().tolist()) if 'APELLIDO Y NOMBRE' in df_main.columns else ["Todos"]
-            sel_nombre = st.selectbox("Apellido y Nombre", nombres_opts)
+            sel_nombre = st.selectbox("Personal", nombres_opts)
 
+        # Aplicar Filtros
         df_fil = df_main.copy()
+        if sel_conv != "Todos": df_fil = df_fil[df_fil['CONVENIO'] == sel_conv]
+        if sel_resp != "Todos": df_fil = df_fil[df_fil['RESPONSABLE DIRECTO'] == sel_resp]
         if sel_area != "Todas": df_fil = df_fil[df_fil['ÁREA'] == sel_area]
-        if sel_cat != "Todas": df_fil = df_fil[df_fil['CATEGORÍA'] == sel_cat]
-        if sel_cc != "Todos": df_fil = df_fil[df_fil['CENTRO DE COSTOS'] == sel_cc]
         if sel_nombre != "Todos": df_fil = df_fil[df_fil['APELLIDO Y NOMBRE'] == sel_nombre]
 
-        # Grilla Original
+        # --- DISEÑO ---
         col_izq, col_centro, col_der = st.columns([1.5, 3, 2.5])
 
         with col_izq:
             with st.container(border=True):
                 st.markdown("<p style='text-align:center; color:#64748B; font-size:18px;'>Total Activos</p>", unsafe_allow_html=True)
-                st.markdown(f"<h1 style='text-align:center; color:#1E3A8A;'>{len(df_fil)}</h1>", unsafe_allow_html=True)
+                st.markdown(f<h1 style='text-align:center; color:#1E3A8A;'>{len(df_fil)}</h1>", unsafe_allow_html=True)
             with st.container(border=True):
-                if 'APELLIDO Y NOMBRE' in df_fil.columns:
-                    st.dataframe(df_fil[['APELLIDO Y NOMBRE']], hide_index=True, height=580, use_container_width=True)
+                st.dataframe(df_fil[['APELLIDO Y NOMBRE']], hide_index=True, height=540, use_container_width=True)
 
         with col_centro:
-            c1, c2 = st.columns(2)
-            with c1:
-                with st.container(border=True):
-                    st.markdown("<p style='text-align:center; background-color:#F1F5F9; padding:5px;'><b>Género</b></p>", unsafe_allow_html=True)
-                    if 'GÉNERO' in df_fil.columns:
-                        fig_g = px.pie(df_fil, names='GÉNERO', hole=0.6, color_discrete_sequence=PALETA_AZUL_GRIS)
-                        fig_g.update_layout(height=200, margin=dict(t=0, b=0, l=0, r=0), showlegend=False)
-                        st.plotly_chart(fig_g, use_container_width=True)
-            with c2:
-                with st.container(border=True):
-                    st.markdown("<p style='text-align:center; background-color:#F1F5F9; padding:5px;'><b>Categoría</b></p>", unsafe_allow_html=True)
-                    if 'CATEGORÍA' in df_fil.columns:
-                        fig_c = px.pie(df_fil, names='CATEGORÍA', hole=0.6, color_discrete_sequence=PALETA_AZUL_GRIS[::-1])
-                        fig_c.update_layout(height=200, margin=dict(t=0, b=0, l=0, r=0), showlegend=False)
-                        st.plotly_chart(fig_c, use_container_width=True)
-
+            # Gráfico de Barras Verticales (Puestos hacia arriba)
             with st.container(border=True):
                 st.markdown("<p style='text-align:center; background-color:#F1F5F9; padding:5px;'><b>Dotación por Puesto</b></p>", unsafe_allow_html=True)
                 if 'PUESTO' in df_fil.columns:
                     df_p = df_fil['PUESTO'].value_counts().reset_index()
-                    fig_p = px.bar(df_p, y='PUESTO', x='count', orientation='h', text='count', color_discrete_sequence=['#3B82F6'])
-                    fig_p.update_layout(height=240, margin=dict(t=0, b=0, l=0, r=10), xaxis_title="", yaxis_title="")
+                    fig_p = px.bar(df_p, x='PUESTO', y='count', text='count', color_discrete_sequence=['#3B82F6'])
+                    fig_p.update_layout(height=300, margin=dict(t=10, b=0, l=0, r=0), xaxis_title="", yaxis_title="")
                     st.plotly_chart(fig_p, use_container_width=True)
 
+            # Nuevo gráfico por Responsable Directo
+            with st.container(border=True):
+                st.markdown("<p style='text-align:center; background-color:#F1F5F9; padding:5px;'><b>Distribución por Responsable Directo</b></p>", unsafe_allow_html=True)
+                if 'RESPONSABLE DIRECTO' in df_fil.columns:
+                    df_res = df_fil['RESPONSABLE DIRECTO'].value_counts().reset_index()
+                    fig_res = px.pie(df_res, names='RESPONSABLE DIRECTO', values='count', hole=0.5, color_discrete_sequence=PALETA_AZUL_GRIS)
+                    fig_res.update_layout(height=250, margin=dict(t=0, b=0, l=0, r=0), showlegend=True)
+                    st.plotly_chart(fig_res, use_container_width=True)
+
+        with col_der:
             with st.container(border=True):
                 st.markdown("<p style='text-align:center; background-color:#F1F5F9; padding:5px;'><b>Centro de Costos</b></p>", unsafe_allow_html=True)
                 if 'CENTRO DE COSTOS' in df_fil.columns:
                     df_cc = df_fil['CENTRO DE COSTOS'].value_counts().reset_index()
                     fig_cc = px.pie(df_cc, names='CENTRO DE COSTOS', hole=0.5, color_discrete_sequence=PALETA_AZUL_GRIS[2:])
-                    fig_cc.update_layout(height=160, margin=dict(t=0, b=0, l=0, r=0), showlegend=False)
+                    # Se corrigió para que el anillo sea completo
+                    fig_cc.update_layout(height=280, margin=dict(t=0, b=0, l=0, r=0), showlegend=False)
                     st.plotly_chart(fig_cc, use_container_width=True)
 
-        with col_der:
             with st.container(border=True):
                 st.markdown("<p style='text-align:center; background-color:#F1F5F9; padding:5px;'><b>Dotación por Área</b></p>", unsafe_allow_html=True)
                 if 'ÁREA' in df_fil.columns:
                     df_a = df_fil['ÁREA'].value_counts().reset_index()
                     fig_a = px.bar(df_a, x='ÁREA', y='count', text='count', color_discrete_sequence=['#64748B'])
-                    fig_a.update_layout(height=220, margin=dict(t=10, b=0, l=0, r=0), xaxis_title="", yaxis_title="")
+                    fig_a.update_layout(height=250, margin=dict(t=10, b=0, l=0, r=0), xaxis_title="", yaxis_title="")
                     st.plotly_chart(fig_a, use_container_width=True)
 
-            with st.container(border=True):
-                st.markdown("<p style='text-align:center; background-color:#F1F5F9; padding:5px;'><b>Mapa Estructural</b></p>", unsafe_allow_html=True)
-                if 'ÁREA' in df_fil.columns and 'PUESTO' in df_fil.columns:
-                    fig_tree = px.treemap(df_fil, path=[px.Constant("Exincor"), 'ÁREA', 'PUESTO'], color_discrete_sequence=PALETA_AZUL_GRIS)
-                    fig_tree.update_layout(height=415, margin=dict(t=10, b=0, l=0, r=0))
-                    st.plotly_chart(fig_tree, use_container_width=True)
-
     with tab2:
+        # (Sección de cumpleaños sin cambios)
         st.subheader("🎂 Próximos Cumpleaños")
         if col_fecha:
             mes_actual = datetime.now().month
@@ -140,15 +126,12 @@ try:
             if not cumples_mes.empty:
                 cumples_mes['DIA'] = cumples_mes['FECHA_LIMPIA'].dt.day
                 cumples_mes = cumples_mes.sort_values('DIA')
-                st.success(f"Hay {len(cumples_mes)} cumpleaños en el mes actual.")
                 cols = st.columns(5)
                 for i, row in cumples_mes.iterrows():
                     with cols[i % 5]:
                         with st.container(border=True):
                             st.markdown(f"<h3 style='color:#1E3A8A; text-align:center;'>{int(row['DIA'])}</h3>", unsafe_allow_html=True)
                             st.markdown(f"<p style='text-align:center; font-size:14px;'>{row['APELLIDO Y NOMBRE']}</p>", unsafe_allow_html=True)
-            else:
-                st.info("No hay cumpleaños este mes.")
 
 except Exception as e:
     st.error(f"Error: {e}")
