@@ -32,9 +32,10 @@ try:
     df_cump = cargar_datos("540729566")
     hoy = datetime.now()
 
-    # --- LÓGICA DE GLOBOS ---
+    # --- LÓGICA DE GLOBOS (ESTRICTA: SOLO HOY) ---
     col_f_nac = 'FECHA NACIMIENTO'
     df_cump['DT_NAC'] = limpiar_fecha(df_cump, col_f_nac)
+    # Solo disparamos globos si el día Y el mes coinciden exactamente con HOY
     cumple_hoy = df_cump[(df_cump['DT_NAC'].dt.month == hoy.month) & (df_cump['DT_NAC'].dt.day == hoy.day)]
     if not cumple_hoy.empty:
         st.balloons()
@@ -48,10 +49,10 @@ try:
         st.markdown("<h1 style='color: #1E3A8A; margin-top: 10px;'>Gestión de RRHH Exincor</h1>", unsafe_allow_html=True)
     
     st.markdown("---")
-    tab1, tab2 = st.tabs(["📊 Panel de Dotación", "📅 Efemérides y Aniversarios"])
+    tab1, tab2 = st.tabs(["📊 Panel de Dotación", "🎂 Cumpleaños Mensuales"])
 
     with tab1:
-        # --- FILTROS (MANTENEMOS TU PANEL INTACTO) ---
+        # --- FILTROS (SIN CAMBIOS) ---
         col_f1, col_f2, col_f3, col_f4, col_f5 = st.columns(5)
         def get_opts(df, col, d="Todos"):
             return [d] + sorted(df[col].dropna().unique().tolist()) if col in df.columns else [d]
@@ -83,6 +84,16 @@ try:
             if 'PUESTO' in df_fil.columns:
                 fig_p = px.bar(df_fil['PUESTO'].value_counts().reset_index(), x='PUESTO', y='count', text='count', color_discrete_sequence=['#3B82F6'], title="Puestos")
                 st.plotly_chart(fig_p.update_layout(height=300), use_container_width=True)
+            
+            # --- RANKING DE EDADES POR ÁREA (NUEVO INDICADOR) ---
+            if 'EDAD' in df_fil.columns and 'ÁREA' in df_fil.columns:
+                # Convertimos edad a número por las dudas
+                df_fil['EDAD'] = pd.to_numeric(df_fil['EDAD'], errors='coerce')
+                ranking_edad = df_fil.groupby('ÁREA')['EDAD'].mean().reset_index().sort_values('EDAD', ascending=False)
+                fig_edad = px.bar(ranking_edad, x='EDAD', y='ÁREA', orientation='h', text_auto='.1f', 
+                                  title="Ranking: Promedio de Edad por Área", color_discrete_sequence=['#1E3A8A'])
+                st.plotly_chart(fig_edad.update_layout(height=300), use_container_width=True)
+
             r1, r2 = st.columns([2, 1])
             if 'RESPONSABLE DIRECTO' in df_fil.columns: r1.plotly_chart(px.bar(df_fil['RESPONSABLE DIRECTO'].value_counts().reset_index(), x='RESPONSABLE DIRECTO', y='count', color_discrete_sequence=['#1E3A8A'], title="Responsables").update_layout(height=250), use_container_width=True)
             if 'ÁREA' in df_fil.columns: r2.plotly_chart(px.bar(df_fil['ÁREA'].value_counts().reset_index(), x='ÁREA', y='count', color_discrete_sequence=['#64748B'], title="Áreas").update_layout(height=250), use_container_width=True)
@@ -94,7 +105,7 @@ try:
         col_f_ing = next((c for c in df_main.columns if 'INGRESO' in c or 'ALTA' in c), 'FECHA INGRESO')
         df_main['DT_ING'] = limpiar_fecha(df_main, col_f_ing)
 
-        t1, t2 = st.tabs(["🎂 Cumpleaños de Vida (Mensual)", "🎖️ Aniversarios Laborales (Todo el Personal)"])
+        t1, t2 = st.tabs(["🎂 Cumpleaños del Mes", "🎖️ Aniversarios Laborales (Dotación Completa)"])
 
         with t1:
             st.subheader(f"Cumpleaños en {meses[sel_mes-1]}")
@@ -116,15 +127,13 @@ try:
             else: st.info(f"No hay cumpleaños en {meses[sel_mes-1]}.")
 
         with t2:
-            st.subheader("Trayectoria y Aniversarios Laborales 2026")
+            st.subheader("Aniversarios Laborales 2026")
             if not df_main.empty:
-                # Calculamos antigüedad de TODOS
                 df_all = df_main.dropna(subset=['DT_ING']).copy()
                 df_all['ANTIGUEDAD'] = hoy.year - df_all['DT_ING'].dt.year
                 df_all = df_all.sort_values('ANTIGUEDAD', ascending=False)
                 
-                # Buscador opcional para no perderse entre tantas tarjetas
-                busqueda = st.text_input("🔍 Buscar empleado por nombre...", "")
+                busqueda = st.text_input("🔍 Buscar por nombre...", "")
                 if busqueda:
                     df_all = df_all[df_all['APELLIDO Y NOMBRE'].str.contains(busqueda.upper())]
 
@@ -133,15 +142,12 @@ try:
                     for j, (_, r) in enumerate(df_all.iloc[i:i+3].iterrows()):
                         with cols[j]:
                             with st.container(border=True):
-                                mes_ing = meses[int(r['DT_ING'].month)-1]
-                                st.markdown(f"### 🎖️ Ingreso: {mes_ing}")
+                                m_ing = meses[int(r['DT_ING'].month)-1]
+                                st.markdown(f"### 🎖️ Ingreso: {m_ing}")
                                 st.markdown(f"**{r['APELLIDO Y NOMBRE']}**")
-                                if r['ANTIGUEDAD'] > 0:
-                                    st.success(f"🎊 Cumple {int(r['ANTIGUEDAD'])} años en 2026")
-                                else:
-                                    st.info("🌱 Ingresó este año")
-                                st.caption(f"Fecha exacta: {r['DT_ING'].strftime('%d/%m/%Y')}")
-            else: st.info("No hay datos de ingreso disponibles.")
+                                if r['ANTIGUEDAD'] > 0: st.success(f"🎊 Cumple {int(r['ANTIGUEDAD'])} años")
+                                else: st.info("🌱 Ingreso este año")
+                                st.caption(f"Fecha: {r['DT_ING'].strftime('%d/%m/%Y')}")
 
 except Exception as e:
     st.error(f"Error: {e}")
