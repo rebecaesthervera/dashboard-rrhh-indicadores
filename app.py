@@ -68,7 +68,7 @@ try:
         df_fil = df_main.copy()
         if sel_conv != "Todos": df_fil = df_fil[df_fil['CONVENIO'] == sel_conv]
         if sel_resp != "Todos": df_fil = df_fil[df_fil['RESPONSABLE DIRECTO'] == sel_resp]
-        if sel_mod != "Todas": df_fil = df_fil[df_fil['MODALIDAD DE CONTRATACIÓN'] == sel_mod]
+        if sel_mod != "Todas": df_fil = df_fil[df_fil[mod_col] == sel_mod]
         if sel_area != "Todas": df_fil = df_fil[df_fil['ÁREA'] == sel_area]
         if sel_nombre != "Todos": df_fil = df_fil[df_fil['APELLIDO Y NOMBRE'] == sel_nombre]
 
@@ -83,14 +83,15 @@ try:
                 st.dataframe(df_fil[['APELLIDO Y NOMBRE']], hide_index=True, height=750, use_container_width=True)
 
         with col_der:
-            # Fila 1: 4 Gráficos de Anillo
+            # Fila 1: 4 Gráficos de Anillo (Corregidos con value_counts)
             c1, c2, c3, c4 = st.columns(4)
             
             with c1:
                 with st.container(border=True):
                     st.markdown("<p style='text-align:center; font-size:13px;'><b>Género</b></p>", unsafe_allow_html=True)
                     if 'GÉNERO' in df_fil.columns:
-                        fig = px.pie(df_fil, names='GÉNERO', hole=0.6, color_discrete_sequence=PALETA_AZUL_GRIS)
+                        data = df_fil['GÉNERO'].value_counts().reset_index()
+                        fig = px.pie(data, names='GÉNERO', values='count', hole=0.6, color_discrete_sequence=PALETA_AZUL_GRIS)
                         fig.update_layout(height=150, margin=dict(t=0, b=0, l=0, r=0), showlegend=False)
                         st.plotly_chart(fig, use_container_width=True)
             
@@ -98,7 +99,8 @@ try:
                 with st.container(border=True):
                     st.markdown("<p style='text-align:center; font-size:13px;'><b>Categoría</b></p>", unsafe_allow_html=True)
                     if 'CATEGORÍA' in df_fil.columns:
-                        fig = px.pie(df_fil, names='CATEGORÍA', hole=0.6, color_discrete_sequence=PALETA_AZUL_GRIS[2:])
+                        data = df_fil['CATEGORÍA'].value_counts().reset_index()
+                        fig = px.pie(data, names='CATEGORÍA', values='count', hole=0.6, color_discrete_sequence=PALETA_AZUL_GRIS[2:])
                         fig.update_layout(height=150, margin=dict(t=0, b=0, l=0, r=0), showlegend=False)
                         st.plotly_chart(fig, use_container_width=True)
 
@@ -106,9 +108,9 @@ try:
                 with st.container(border=True):
                     st.markdown("<p style='text-align:center; font-size:13px;'><b>Modalidad</b></p>", unsafe_allow_html=True)
                     if mod_col in df_fil.columns:
-                        # Limpieza para el gráfico: quitar nulos para evitar huecos blancos
-                        df_mod = df_fil[df_fil[mod_col].notna()]
-                        fig = px.pie(df_mod, names=mod_col, hole=0.6, color_discrete_sequence=PALETA_AZUL_GRIS[4:])
+                        # CORRECCIÓN CLAVE: Conteo explícito para cerrar el anillo
+                        data_mod = df_fil[mod_col].value_counts().reset_index()
+                        fig = px.pie(data_mod, names=mod_col, values='count', hole=0.6, color_discrete_sequence=PALETA_AZUL_GRIS[4:])
                         fig.update_layout(height=150, margin=dict(t=0, b=0, l=0, r=0), showlegend=False)
                         st.plotly_chart(fig, use_container_width=True)
 
@@ -116,8 +118,8 @@ try:
                 with st.container(border=True):
                     st.markdown("<p style='text-align:center; font-size:13px;'><b>Centro de Costos</b></p>", unsafe_allow_html=True)
                     if 'CENTRO DE COSTOS' in df_fil.columns:
-                        df_cc_plot = df_fil[df_fil['CENTRO DE COSTOS'].notna()]
-                        fig = px.pie(df_cc_plot, names='CENTRO DE COSTOS', hole=0.6, color_discrete_sequence=PALETA_AZUL_GRIS)
+                        data_cc = df_fil['CENTRO DE COSTOS'].value_counts().reset_index()
+                        fig = px.pie(data_cc, names='CENTRO DE COSTOS', values='count', hole=0.6, color_discrete_sequence=PALETA_AZUL_GRIS)
                         fig.update_layout(height=150, margin=dict(t=0, b=0, l=0, r=0), showlegend=False)
                         st.plotly_chart(fig, use_container_width=True)
 
@@ -150,7 +152,6 @@ try:
                         st.plotly_chart(fig_a, use_container_width=True)
 
     with tab2:
-        # Sección de cumpleaños
         st.subheader("🎂 Próximos Cumpleaños")
         if col_fecha:
             mes_actual = datetime.now().month
