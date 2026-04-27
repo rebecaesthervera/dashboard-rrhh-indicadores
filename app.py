@@ -9,7 +9,7 @@ st.set_page_config(page_title="Gestión Exincor", layout="wide")
 # 2. COLORES CORPORATIVOS
 PALETA_AZUL_GRIS = ['#1E3A8A', '#64748B', '#3B82F6', '#94A3B8', '#1D4ED8', '#CBD5E1', '#0F172A']
 
-@st.cache_data(ttl=600)
+@st.cache_data(ttl=60) # Actualiza cada 1 minuto
 def cargar_datos(gid):
     sheet_url = f"https://docs.google.com/spreadsheets/d/1ElY2OaVFq3GzNiWoe69HCtnmQZe8rEK7/export?format=csv&gid={gid}"
     df = pd.read_csv(sheet_url)
@@ -17,14 +17,14 @@ def cargar_datos(gid):
     return df
 
 try:
-    # Carga de datos principales
+    # Carga de datos
     df_main = cargar_datos("1543772338")
     if 'LEGAJO' in df_main.columns:
         df_main = df_main.dropna(subset=['LEGAJO'])
         
     df_cump = cargar_datos("540729566")
     
-    # --- PROCESAMIENTO DE CUMPLEAÑOS ---
+    # --- CUMPLEAÑOS ---
     col_fecha = next((c for c in df_cump.columns if 'FECHA' in c or 'NACIMIENTO' in c), None)
     cumples_hoy_lista = []
     if col_fecha:
@@ -37,8 +37,18 @@ try:
         for persona in cumples_hoy_lista:
             st.toast(f"🎂 ¡Hoy es el cumpleaños de {persona}!", icon="🎉")
 
-    # --- ENCABEZADO ---
-    st.markdown("<h2 style='color: #1E3A8A; margin-bottom: 0px;'>Dotación Exincor</h2>", unsafe_allow_html=True)
+    # --- ENCABEZADO CON LOGO ---
+    col_logo, col_titulo = st.columns([1, 4])
+    
+    with col_logo:
+        try:
+            st.image("Logotipo_Exincor_Final.png", width=150)
+        except:
+            st.warning("Logo no detectado")
+
+    with col_titulo:
+        st.markdown("<h1 style='color: #1E3A8A; margin-top: 10px;'>Dotación Exincor</h1>", unsafe_allow_html=True)
+    
     st.markdown("---")
 
     tab1, tab2 = st.tabs(["📊 Panel de Dotación", "🎂 Cumpleaños del Mes"])
@@ -72,7 +82,7 @@ try:
         if sel_area != "Todas": df_fil = df_fil[df_fil['ÁREA'] == sel_area]
         if sel_nombre != "Todos": df_fil = df_fil[df_fil['APELLIDO Y NOMBRE'] == sel_nombre]
 
-        # --- DISEÑO ---
+        # --- DISTRIBUCIÓN ---
         col_izq, col_der = st.columns([1.2, 3.8])
 
         with col_izq:
@@ -83,9 +93,8 @@ try:
                 st.dataframe(df_fil[['APELLIDO Y NOMBRE']], hide_index=True, height=750, use_container_width=True)
 
         with col_der:
-            # Fila 1: 4 Gráficos de Anillo
+            # Fila 1: 4 Anillos
             c1, c2, c3, c4 = st.columns(4)
-            
             with c1:
                 with st.container(border=True):
                     st.markdown("<p style='text-align:center; font-size:13px;'><b>Género</b></p>", unsafe_allow_html=True)
@@ -94,76 +103,10 @@ try:
                         fig = px.pie(data, names='GÉNERO', values='count', hole=0.6, color_discrete_sequence=PALETA_AZUL_GRIS)
                         fig.update_layout(height=150, margin=dict(t=0, b=0, l=0, r=0), showlegend=False)
                         st.plotly_chart(fig, use_container_width=True)
-            
             with c2:
                 with st.container(border=True):
                     st.markdown("<p style='text-align:center; font-size:13px;'><b>Categoría</b></p>", unsafe_allow_html=True)
                     if 'CATEGORÍA' in df_fil.columns:
                         data = df_fil['CATEGORÍA'].value_counts().reset_index()
                         fig = px.pie(data, names='CATEGORÍA', values='count', hole=0.6, color_discrete_sequence=PALETA_AZUL_GRIS[2:])
-                        fig.update_layout(height=150, margin=dict(t=0, b=0, l=0, r=0), showlegend=False)
-                        st.plotly_chart(fig, use_container_width=True)
-
-            with c3:
-                with st.container(border=True):
-                    st.markdown("<p style='text-align:center; font-size:13px;'><b>Contratación</b></p>", unsafe_allow_html=True)
-                    if tipo_col in df_fil.columns:
-                        data_tipo = df_fil[tipo_col].value_counts().reset_index()
-                        fig = px.pie(data_tipo, names=tipo_col, values='count', hole=0.6, color_discrete_sequence=PALETA_AZUL_GRIS[4:])
-                        fig.update_layout(height=150, margin=dict(t=0, b=0, l=0, r=0), showlegend=False)
-                        st.plotly_chart(fig, use_container_width=True)
-
-            with c4:
-                with st.container(border=True):
-                    st.markdown("<p style='text-align:center; font-size:13px;'><b>Centro de Costos</b></p>", unsafe_allow_html=True)
-                    if 'CENTRO DE COSTOS' in df_fil.columns:
-                        data_cc = df_fil['CENTRO DE COSTOS'].value_counts().reset_index()
-                        fig = px.pie(data_cc, names='CENTRO DE COSTOS', values='count', hole=0.6, color_discrete_sequence=PALETA_AZUL_GRIS)
-                        fig.update_layout(height=150, margin=dict(t=0, b=0, l=0, r=0), showlegend=False)
-                        st.plotly_chart(fig, use_container_width=True)
-
-            # Fila 2: Barras Puesto
-            with st.container(border=True):
-                st.markdown("<p style='text-align:center; background-color:#F1F5F9; padding:5px;'><b>Dotación por Puesto</b></p>", unsafe_allow_html=True)
-                if 'PUESTO' in df_fil.columns:
-                    df_p = df_fil['PUESTO'].value_counts().reset_index()
-                    fig_p = px.bar(df_p, x='PUESTO', y='count', text='count', color_discrete_sequence=['#3B82F6'])
-                    fig_p.update_layout(height=300, margin=dict(t=10, b=0, l=0, r=0), xaxis_title="", yaxis_title="")
-                    st.plotly_chart(fig_p, use_container_width=True)
-
-            # Fila 3: Responsables y Áreas
-            c_low1, c_low2 = st.columns([2, 1])
-            with c_low1:
-                with st.container(border=True):
-                    st.markdown("<p style='text-align:center; background-color:#F1F5F9; padding:5px;'><b>Responsable Directo</b></p>", unsafe_allow_html=True)
-                    if 'RESPONSABLE DIRECTO' in df_fil.columns:
-                        df_res_data = df_fil['RESPONSABLE DIRECTO'].value_counts().reset_index()
-                        fig_res = px.bar(df_res_data, x='RESPONSABLE DIRECTO', y='count', text='count', color_discrete_sequence=['#1E3A8A'])
-                        fig_res.update_layout(height=250, margin=dict(t=10, b=0, l=0, r=0))
-                        st.plotly_chart(fig_res, use_container_width=True)
-            with c_low2:
-                with st.container(border=True):
-                    st.markdown("<p style='text-align:center; background-color:#F1F5F9; padding:5px;'><b>Dotación por Área</b></p>", unsafe_allow_html=True)
-                    if 'ÁREA' in df_fil.columns:
-                        df_a = df_fil['ÁREA'].value_counts().reset_index()
-                        fig_a = px.bar(df_a, x='ÁREA', y='count', text='count', color_discrete_sequence=['#64748B'])
-                        fig_a.update_layout(height=250, margin=dict(t=10, b=0, l=0, r=0))
-                        st.plotly_chart(fig_a, use_container_width=True)
-
-    with tab2:
-        st.subheader("🎂 Próximos Cumpleaños")
-        if col_fecha:
-            mes_actual = datetime.now().month
-            cumples_mes = df_cump[df_cump['FECHA_LIMPIA'].dt.month == mes_actual].copy()
-            if not cumples_mes.empty:
-                cumples_mes['DIA'] = cumples_mes['FECHA_LIMPIA'].dt.day
-                cumples_mes = cumples_mes.sort_values('DIA')
-                cols = st.columns(5)
-                for i, row in cumples_mes.iterrows():
-                    with cols[i % 5]:
-                        with st.container(border=True):
-                            st.markdown(f"<h3 style='color:#1E3A8A; text-align:center;'>{int(row['DIA'])}</h3>", unsafe_allow_html=True)
-                            st.markdown(f"<p style='text-align:center; font-size:14px;'>{row['APELLIDO Y NOMBRE']}</p>", unsafe_allow_html=True)
-
-except Exception as e:
-    st.error(f"Error: {e}")
+                        fig.update_layout(height=150, margin=dict(t=0, b=0,
