@@ -15,20 +15,21 @@ def cargar_datos(gid):
     try:
         sheet_url = f"https://docs.google.com/spreadsheets/d/1ElY2OaVFq3GzNiWoe69HCtnmQZe8rEK7/export?format=csv&gid={gid}"
         df = pd.read_csv(sheet_url)
+        # Limpieza de nombres de columnas
         df.columns = df.columns.str.strip().str.upper()
         return df
     except:
         return pd.DataFrame()
 
 try:
-    # Carga de datos
-    df_main = cargar_datos("1543772338")
-    df_cump = cargar_datos("540729566")
+    # CARGA DE DATOS
+    df_main = cargar_datos("1543772338") # Hoja principal
+    df_cump = cargar_datos("540729566")  # Hoja cumpleaños
     
     if not df_main.empty and 'LEGAJO' in df_main.columns:
         df_main = df_main.dropna(subset=['LEGAJO'])
 
-    # --- ENCABEZADO CON LOGO ---
+    # --- ENCABEZADO ---
     col_logo, col_titulo = st.columns([1, 4])
     with col_logo:
         archivos = os.listdir('.')
@@ -36,14 +37,14 @@ try:
         if imagen_logo:
             st.image(imagen_logo, width=150)
         else:
-            st.info("ℹ️ Sube el logo a GitHub")
+            st.info("ℹ️ Sube el logo")
 
     with col_titulo:
-        st.markdown("<h1 style='color: #1E3A8A; margin-top: 10px;'>Dotación Exincor</h1>", unsafe_allow_html=True)
+        st.markdown("<h1 style='color: #1E3A8A; margin-top: 10px;'>Gestión de RRHH Exincor</h1>", unsafe_allow_html=True)
     
     st.markdown("---")
 
-    tab1, tab2 = st.tabs(["📊 Panel de Dotación", "🎂 Cumpleaños del Mes"])
+    tab1, tab2 = st.tabs(["📊 Panel de Dotación", "🎂 Cumpleaños y Trayectoria"])
 
     with tab1:
         # --- FILTROS ---
@@ -73,70 +74,71 @@ try:
         if 'ÁREA' in df_fil.columns and sel_area != "Todas": df_fil = df_fil[df_fil['ÁREA'] == sel_area]
         if 'APELLIDO Y NOMBRE' in df_fil.columns and sel_nombre != "Todos": df_fil = df_fil[df_fil['APELLIDO Y NOMBRE'] == sel_nombre]
 
-        # --- CUERPO ---
-        col_izq, col_der = st.columns([1.2, 3.8])
-        with col_izq:
+        # --- PANEL PRINCIPAL ---
+        c_met, c_graf = st.columns([1.2, 3.8])
+        with c_met:
             st.metric("Total Activos", len(df_fil))
-            if 'APELLIDO Y NOMBRE' in df_fil.columns:
-                st.dataframe(df_fil[['APELLIDO Y NOMBRE']], hide_index=True, height=600, use_container_width=True)
+            st.dataframe(df_fil[['APELLIDO Y NOMBRE']], hide_index=True, height=550)
 
-        with col_der:
+        with c_graf:
+            # Gráficos de anillo
             c1, c2, c3, c4 = st.columns(4)
-            columnas_anillo = ['GÉNERO', 'CATEGORÍA', tipo_col, 'CENTRO DE COSTOS']
-            titulos_anillo = ['Género', 'Categoría', 'Contratación', 'Centro Costos']
-            
-            for col_ui, col_df, tit in zip([c1, c2, c3, c4], columnas_anillo, titulos_anillo):
-                with col_ui:
-                    if col_df in df_fil.columns:
-                        d_pie = df_fil[col_df].value_counts().reset_index()
-                        fig = px.pie(d_pie, names=col_df, values='count', hole=0.6, color_discrete_sequence=PALETA_AZUL_GRIS)
-                        fig.update_layout(height=200, margin=dict(t=30, b=0, l=0, r=0), showlegend=False, title={'text': tit, 'x': 0.5})
+            columnas = ['GÉNERO', 'CATEGORÍA', tipo_col, 'CENTRO DE COSTOS']
+            titulos = ['Género', 'Categoría', 'Contratación', 'Centro Costos']
+            for ui, col_db, tit in zip([c1, c2, c3, c4], columnas, titulos):
+                with ui:
+                    if col_db in df_fil.columns:
+                        d_pie = df_fil[col_db].value_counts().reset_index()
+                        fig = px.pie(d_pie, names=col_db, values='count', hole=0.6, color_discrete_sequence=PALETA_AZUL_GRIS)
+                        fig.update_layout(height=180, margin=dict(t=30, b=0, l=0, r=0), showlegend=False, title={'text': tit, 'x': 0.5})
                         st.plotly_chart(fig, use_container_width=True)
 
-            if 'PUESTO' in df_fil.columns:
-                df_p = df_fil['PUESTO'].value_counts().reset_index()
-                fig_p = px.bar(df_p, x='PUESTO', y='count', text='count', color_discrete_sequence=['#3B82F6'], title="Dotación por Puesto")
-                fig_p.update_layout(height=300, xaxis_title="", yaxis_title="")
-                st.plotly_chart(fig_p, use_container_width=True)
+            # Gráfico de Barras de Responsables (CORREGIDO)
+            if 'RESPONSABLE DIRECTO' in df_fil.columns:
+                d_resp = df_fil['RESPONSABLE DIRECTO'].value_counts().reset_index()
+                fig_resp = px.bar(d_resp, x='RESPONSABLE DIRECTO', y='count', text='count', 
+                                  color_discrete_sequence=['#1E3A8A'], title="Distribución por Responsable")
+                fig_resp.update_layout(height=300)
+                st.plotly_chart(fig_resp, use_container_width=True)
 
     with tab2:
-        st.subheader("🎂 Celebraciones del Mes")
+        st.subheader("🎂 Cumpleaños y Trayectoria del Mes")
         
-        # BUSCADOR FLEXIBLE DE FECHAS
         col_fecha_nac = next((c for c in df_cump.columns if 'FECHA' in c or 'NACIMIENTO' in c), None)
         col_fecha_ing = next((c for c in df_main.columns if 'INGRESO' in c or 'ALTA' in c), None)
 
         if col_fecha_nac and not df_cump.empty:
             df_cump['FECHA_NAC'] = pd.to_datetime(df_cump[col_fecha_nac], errors='coerce', dayfirst=True)
-            mes_actual = datetime.now().month
             hoy = datetime.now()
             
-            cumples_mes = df_cump[df_cump['FECHA_NAC'].dt.month == mes_actual].copy()
+            # Filtro del mes actual
+            df_mes = df_cump[df_cump['FECHA_NAC'].dt.month == hoy.month].copy()
             
-            if not cumples_mes.empty:
-                cumples_mes['DIA'] = cumples_mes['FECHA_NAC'].dt.day
-                cumples_mes = cumples_mes.sort_values('DIA')
+            if not df_mes.empty:
+                df_mes['DIA'] = df_mes['FECHA_NAC'].dt.day
+                df_mes = df_mes.sort_values('DIA')
                 
-                cols_c = st.columns(3)
-                for i, row in cumples_mes.reset_index().iterrows():
-                    with cols_c[i % 3]:
+                cols = st.columns(3)
+                for idx, row in df_mes.reset_index().iterrows():
+                    with cols[idx % 3]:
                         with st.container(border=True):
                             st.markdown(f"### 📅 Día {int(row['DIA'])}")
                             st.markdown(f"**{row['APELLIDO Y NOMBRE']}**")
                             
-                            # Cálculo de Antigüedad
+                            # Buscar antigüedad en la hoja principal
                             if col_fecha_ing:
-                                match = df_main[df_main['APELLIDO Y NOMBRE'] == row['APELLIDO Y NOMBRE']]
-                                if not match.empty:
-                                    f_ing = pd.to_datetime(match[col_fecha_ing].values[0], errors='coerce')
-                                    if not pd.isnull(f_ing):
-                                        anos = hoy.year - f_ing.year - ((hoy.month, hoy.day) < (f_ing.month, f_ing.day))
-                                        st.markdown(f"⭐ **Trayectoria:** {max(0, anos)} años")
+                                m = df_main[df_main['APELLIDO Y NOMBRE'] == row['APELLIDO Y NOMBRE']]
+                                if not m.empty:
+                                    f_i = pd.to_datetime(m[col_fecha_ing].values[0], errors='coerce')
+                                    if not pd.isnull(f_i):
+                                        ant = hoy.year - f_i.year - ((hoy.month, hoy.day) < (f_i.month, f_i.day))
+                                        st.write(f"⭐ Trayectoria: **{max(0, ant)} años**")
+                                        if ant >= 10: st.success("🏆 Veterano")
                             
                             st.divider()
-                            st.button("Felicitar ✨", key=f"hb_{i}", use_container_width=True)
+                            st.button("Saludar ✨", key=f"btn_c_{idx}", use_container_width=True)
             else:
-                st.info("No hay cumpleaños registrados para este mes.")
+                st.info("No hay cumpleaños registrados este mes.")
 
 except Exception as e:
-    st.error(f"Error detectado: {e}")
+    st.error(f"Se produjo un error en la aplicación: {e}")
