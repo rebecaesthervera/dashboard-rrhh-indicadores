@@ -15,6 +15,7 @@ def cargar_datos(gid):
     try:
         url = f"https://docs.google.com/spreadsheets/d/1ElY2OaVFq3GzNiWoe69HCtnmQZe8rEK7/export?format=csv&gid={gid}"
         df = pd.read_csv(url)
+        # Limpiamos espacios al inicio/final y pasamos a mayúsculas
         df.columns = df.columns.str.strip().str.upper()
         return df
     except Exception as e:
@@ -23,7 +24,7 @@ def cargar_datos(gid):
 try:
     # CARGA DE DATOS
     df_main = cargar_datos("1543772338") # Hoja principal
-    df_cump = cargar_datos("540729566")  # Hoja cumpleaños
+    df_cump = cargar_datos("540729566")  # Hoja cumpleaños (3ra pestaña)
     
     if not df_main.empty and 'LEGAJO' in df_main.columns:
         df_main = df_main.dropna(subset=['LEGAJO'])
@@ -43,7 +44,7 @@ try:
     tab1, tab2 = st.tabs(["📊 Panel de Dotación", "🎂 Cumpleaños y Trayectoria"])
 
     with tab1:
-        # --- FILTROS ---
+        # --- FILTROS SEGUROS ---
         col_f1, col_f2, col_f3, col_f4, col_f5 = st.columns(5)
         
         def get_opts(df, col, default="Todos"):
@@ -68,7 +69,7 @@ try:
         if 'ÁREA' in df_fil.columns and sel_area != "Todas": df_fil = df_fil[df_fil['ÁREA'] == sel_area]
         if 'APELLIDO Y NOMBRE' in df_fil.columns and sel_nombre != "Todos": df_fil = df_fil[df_fil['APELLIDO Y NOMBRE'] == sel_nombre]
 
-        # --- CUERPO (LOS 7 INDICADORES) ---
+        # --- CUERPO (7 INDICADORES) ---
         c_met, c_graf = st.columns([1.2, 3.8])
         with c_met:
             st.metric("Total Activos", len(df_fil))
@@ -89,7 +90,7 @@ try:
                         st.plotly_chart(fig, use_container_width=True)
 
             # 5: Puestos
-            if 'PUESTO' in df_fil.columns and not df_fil['PUESTO'].empty:
+            if 'PUESTO' in df_fil.columns:
                 df_p = df_fil['PUESTO'].value_counts().reset_index()
                 fig_p = px.bar(df_p, x='PUESTO', y='count', text='count', color_discrete_sequence=['#3B82F6'], title="Dotación por Puesto")
                 fig_p.update_layout(height=280, xaxis_title="", yaxis_title="")
@@ -98,13 +99,13 @@ try:
             # 6 y 7: Responsables y Áreas
             cl1, cl2 = st.columns([2, 1])
             with cl1:
-                if 'RESPONSABLE DIRECTO' in df_fil.columns and not df_fil['RESPONSABLE DIRECTO'].empty:
+                if 'RESPONSABLE DIRECTO' in df_fil.columns:
                     d_r = df_fil['RESPONSABLE DIRECTO'].value_counts().reset_index()
                     fig_r = px.bar(d_r, x='RESPONSABLE DIRECTO', y='count', text='count', color_discrete_sequence=['#1E3A8A'], title="Responsables")
                     fig_r.update_layout(height=250)
                     st.plotly_chart(fig_r, use_container_width=True)
             with cl2:
-                if 'ÁREA' in df_fil.columns and not df_fil['ÁREA'].empty:
+                if 'ÁREA' in df_fil.columns:
                     d_a = df_fil['ÁREA'].value_counts().reset_index()
                     fig_a = px.bar(d_a, x='ÁREA', y='count', text='count', color_discrete_sequence=['#64748B'], title="Áreas")
                     fig_a.update_layout(height=250)
@@ -112,36 +113,48 @@ try:
 
     with tab2:
         st.subheader("🎂 Cumpleaños y Trayectoria del Mes")
-        col_f_nac = next((c for c in df_cump.columns if 'FECHA' in c or 'NACIMIENTO' in c), None)
+        
+        # NOMBRES EXACTOS SEGÚN TU FOTO
+        # Nota: El código limpia espacios, así que buscará 'FECHA NACIMIENTO' y 'APELLIDO Y NOMBRE'
+        col_f_nac = 'FECHA NACIMIENTO'
         col_f_ing = next((c for c in df_main.columns if 'INGRESO' in c or 'ALTA' in c), None)
 
-        if col_f_nac and not df_cump.empty:
-            df_cump['FECHA_NAC'] = pd.to_datetime(df_cump[col_f_nac], errors='coerce', dayfirst=True)
+        if not df_cump.empty and col_f_nac in df_cump.columns:
+            # Convertir fechas con manejo de errores
+            df_cump['FECHA_NAC_DT'] = pd.to_datetime(df_cump[col_f_nac], errors='coerce', dayfirst=True)
             hoy = datetime.now()
-            df_mes = df_cump[df_cump['FECHA_NAC'].dt.month == hoy.month].copy()
+            
+            # Filtrar por mes actual
+            df_mes = df_cump[df_cump['FECHA_NAC_DT'].dt.month == hoy.month].copy()
             
             if not df_mes.empty:
-                df_mes['DIA'] = df_mes['FECHA_NAC'].dt.day
+                df_mes['DIA'] = df_mes['FECHA_NAC_DT'].dt.day
                 df_mes = df_mes.sort_values('DIA')
+                
                 cols_c = st.columns(3)
                 for idx, row in df_mes.reset_index().iterrows():
                     with cols_c[idx % 3]:
                         with st.container(border=True):
                             st.markdown(f"### 📅 Día {int(row['DIA'])}")
-                            st.markdown(f"**{row['APELLIDO Y NOMBRE']}**")
-                            if col_f_ing:
-                                m = df_main[df_main['APELLIDO Y NOMBRE'] == row['APELLIDO Y NOMBRE']]
+                            nombre_cump = row['APELLIDO Y NOMBRE']
+                            st.markdown(f"**{nombre_cump}**")
+                            
+                            # Cálculo de trayectoria cruzando con la hoja principal
+                            if col_f_ing and not df_main.empty:
+                                # Buscamos al empleado en la hoja principal por nombre
+                                m = df_main[df_main['APELLIDO Y NOMBRE'] == nombre_cump]
                                 if not m.empty:
                                     f_i = pd.to_datetime(m[col_f_ing].values[0], errors='coerce')
                                     if not pd.isnull(f_i):
                                         ant = hoy.year - f_i.year - ((hoy.month, hoy.day) < (f_i.month, f_i.day))
                                         st.markdown(f"⭐ **Trayectoria:** {max(0, ant)} años")
+                            
                             st.divider()
-                            st.button("Felicitar ✨", key=f"btn_fin_{idx}", use_container_width=True)
+                            st.button("Felicitar ✨", key=f"btn_final_v2_{idx}", use_container_width=True)
             else:
-                st.info(f"No hay cumpleaños en {hoy.strftime('%B')}.")
+                st.info(f"No hay cumpleaños registrados para el mes de {hoy.strftime('%B')}.")
         else:
-            st.warning("Verifica los nombres de las columnas en el Excel.")
+            st.error("No se encontró la columna 'FECHA NACIMIENTO' en la hoja de cumpleaños.")
 
 except Exception as e:
-    st.error(f"Error detectado: {e}")
+    st.error(f"Error general: {e}")
