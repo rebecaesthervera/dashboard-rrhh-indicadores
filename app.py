@@ -23,7 +23,7 @@ def cargar_datos(gid):
 try:
     # Carga de datos
     df_main = cargar_datos("1543772338")
-    if 'LEGAJO' in df_main.columns:
+    if not df_main.empty and 'LEGAJO' in df_main.columns:
         df_main = df_main.dropna(subset=['LEGAJO'])
         
     df_cump = cargar_datos("540729566")
@@ -31,7 +31,7 @@ try:
     # --- PROCESAMIENTO CUMPLEAÑOS ---
     col_fecha = next((c for c in df_cump.columns if 'FECHA' in c or 'NACIMIENTO' in c), None)
     cumples_hoy_lista = []
-    if col_fecha:
+    if col_fecha and not df_cump.empty:
         df_cump['FECHA_LIMPIA'] = pd.to_datetime(df_cump[col_fecha], errors='coerce', dayfirst=True)
         hoy = datetime.now()
         mask_hoy = (df_cump['FECHA_LIMPIA'].dt.month == hoy.month) & (df_cump['FECHA_LIMPIA'].dt.day == hoy.day)
@@ -45,9 +45,10 @@ try:
     col_logo, col_titulo = st.columns([1, 4])
     with col_logo:
         try:
+            # Asegúrate de subir 'Logotipo_Exincor_Final.png' a la carpeta principal de tu GitHub
             st.image("Logotipo_Exincor_Final.png", width=150)
         except:
-            st.info("Subir 'Logotipo_Exincor_Final.png' a GitHub")
+            st.info("ℹ️ Pendiente: Subir 'Logotipo_Exincor_Final.png' a GitHub")
 
     with col_titulo:
         st.markdown("<h1 style='color: #1E3A8A; margin-top: 10px;'>Dotación Exincor</h1>", unsafe_allow_html=True)
@@ -150,9 +151,10 @@ try:
                 with st.container(border=True):
                     st.markdown("<p style='text-align:center; background-color:#F1F5F9; padding:5px;'><b>Responsable Directo</b></p>", unsafe_allow_html=True)
                     if 'RESPONSABLE DIRECTO' in df_fil.columns:
-                        df_res_d = df_fil['RESPONSABLE DIRECTO'].value_counts().reset_index()
-                        fig_res = px.bar(df_res_data=df_res_d, x='RESPONSABLE DIRECTO', y='count', text='count', color_discrete_sequence=['#1E3A8A'])
-                        fig_res.update_layout(height=250, margin=dict(t=10, b=0, l=0, r=0))
+                        # CORREGIDO: Se usa la variable correcta d_resp
+                        d_resp = df_fil['RESPONSABLE DIRECTO'].value_counts().reset_index()
+                        fig_res = px.bar(d_resp, x='RESPONSABLE DIRECTO', y='count', text='count', color_discrete_sequence=['#1E3A8A'])
+                        fig_res.update_layout(height=250, margin=dict(t=10, b=0, l=0, r=0), xaxis_title="", yaxis_title="")
                         st.plotly_chart(fig_res, use_container_width=True)
             with cl2:
                 with st.container(border=True):
@@ -160,23 +162,25 @@ try:
                     if 'ÁREA' in df_fil.columns:
                         df_a = df_fil['ÁREA'].value_counts().reset_index()
                         fig_a = px.bar(df_a, x='ÁREA', y='count', text='count', color_discrete_sequence=['#64748B'])
-                        fig_a.update_layout(height=250, margin=dict(t=10, b=0, l=0, r=0))
+                        fig_a.update_layout(height=250, margin=dict(t=10, b=0, l=0, r=0), xaxis_title="", yaxis_title="")
                         st.plotly_chart(fig_a, use_container_width=True)
 
     with tab2:
         st.subheader("🎂 Próximos Cumpleaños")
-        if col_fecha:
+        if col_fecha and not df_cump.empty:
             mes_actual = datetime.now().month
             cumples_mes = df_cump[df_cump['FECHA_LIMPIA'].dt.month == mes_actual].copy()
             if not cumples_mes.empty:
                 cumples_mes['DIA'] = cumples_mes['FECHA_LIMPIA'].dt.day
                 cumples_mes = cumples_mes.sort_values('DIA')
-                cols = st.columns(5)
-                for i, row in cumples_mes.iterrows():
-                    with cols[i % 5]:
+                cols_c = st.columns(5)
+                for i, row in cumples_mes.reset_index().iterrows():
+                    with cols_c[i % 5]:
                         with st.container(border=True):
                             st.markdown(f"<h3 style='color:#1E3A8A; text-align:center;'>{int(row['DIA'])}</h3>", unsafe_allow_html=True)
                             st.markdown(f"<p style='text-align:center; font-size:14px;'>{row['APELLIDO Y NOMBRE']}</p>", unsafe_allow_html=True)
+            else:
+                st.info("No hay cumpleaños registrados para este mes.")
 
 except Exception as e:
-    st.error(f"Error detectado: {e}")
+    st.error(f"Error general: {e}")
