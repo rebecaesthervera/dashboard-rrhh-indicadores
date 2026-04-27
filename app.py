@@ -44,7 +44,7 @@ try:
     tab1, tab2 = st.tabs(["📊 Panel de Dotación", "🎂 Cumpleaños del Mes"])
 
     with tab1:
-        # --- FILTROS ---
+        # --- FILTROS (Actualizado con TIPO DE CONTRATACIÓN) ---
         col_f1, col_f2, col_f3, col_f4, col_f5 = st.columns(5)
         
         with col_f1:
@@ -54,9 +54,9 @@ try:
             resp_opts = ["Todos"] + sorted(df_main['RESPONSABLE DIRECTO'].dropna().unique().tolist()) if 'RESPONSABLE DIRECTO' in df_main.columns else ["Todos"]
             sel_resp = st.selectbox("Responsable Directo", resp_opts)
         with col_f3:
-            mod_col = 'MODALIDAD DE CONTRATACIÓN'
-            mod_opts = ["Todas"] + sorted(df_main[mod_col].dropna().unique().tolist()) if mod_col in df_main.columns else ["Todas"]
-            sel_mod = st.selectbox("Modalidad", mod_opts)
+            tipo_col = 'TIPO DE CONTRATACIÓN'
+            tipo_opts = ["Todos"] + sorted(df_main[tipo_col].dropna().unique().tolist()) if tipo_col in df_main.columns else ["Todos"]
+            sel_tipo = st.selectbox("Tipo Contratación", tipo_opts)
         with col_f4:
             area_opts = ["Todas"] + sorted(df_main['ÁREA'].dropna().unique().tolist()) if 'ÁREA' in df_main.columns else ["Todas"]
             sel_area = st.selectbox("Área", area_opts)
@@ -68,7 +68,7 @@ try:
         df_fil = df_main.copy()
         if sel_conv != "Todos": df_fil = df_fil[df_fil['CONVENIO'] == sel_conv]
         if sel_resp != "Todos": df_fil = df_fil[df_fil['RESPONSABLE DIRECTO'] == sel_resp]
-        if sel_mod != "Todas": df_fil = df_fil[df_fil[mod_col] == sel_mod]
+        if sel_tipo != "Todos": df_fil = df_fil[df_fil[tipo_col] == sel_tipo]
         if sel_area != "Todas": df_fil = df_fil[df_fil['ÁREA'] == sel_area]
         if sel_nombre != "Todos": df_fil = df_fil[df_fil['APELLIDO Y NOMBRE'] == sel_nombre]
 
@@ -83,7 +83,7 @@ try:
                 st.dataframe(df_fil[['APELLIDO Y NOMBRE']], hide_index=True, height=750, use_container_width=True)
 
         with col_der:
-            # Fila 1: 4 Gráficos de Anillo (Corregidos con value_counts)
+            # Fila 1: 4 Gráficos de Anillo
             c1, c2, c3, c4 = st.columns(4)
             
             with c1:
@@ -106,11 +106,11 @@ try:
 
             with c3:
                 with st.container(border=True):
-                    st.markdown("<p style='text-align:center; font-size:13px;'><b>Modalidad</b></p>", unsafe_allow_html=True)
-                    if mod_col in df_fil.columns:
-                        # CORRECCIÓN CLAVE: Conteo explícito para cerrar el anillo
-                        data_mod = df_fil[mod_col].value_counts().reset_index()
-                        fig = px.pie(data_mod, names=mod_col, values='count', hole=0.6, color_discrete_sequence=PALETA_AZUL_GRIS[4:])
+                    st.markdown("<p style='text-align:center; font-size:13px;'><b>Contratación</b></p>", unsafe_allow_html=True)
+                    if tipo_col in df_fil.columns:
+                        # Conteo para cerrar el anillo correctamente
+                        data_tipo = df_fil[tipo_col].value_counts().reset_index()
+                        fig = px.pie(data_tipo, names=tipo_col, values='count', hole=0.6, color_discrete_sequence=PALETA_AZUL_GRIS[4:])
                         fig.update_layout(height=150, margin=dict(t=0, b=0, l=0, r=0), showlegend=False)
                         st.plotly_chart(fig, use_container_width=True)
 
@@ -139,32 +139,4 @@ try:
                     st.markdown("<p style='text-align:center; background-color:#F1F5F9; padding:5px;'><b>Responsable Directo</b></p>", unsafe_allow_html=True)
                     if 'RESPONSABLE DIRECTO' in df_fil.columns:
                         df_res = df_fil['RESPONSABLE DIRECTO'].value_counts().reset_index()
-                        fig_res = px.bar(df_res, x='RESPONSABLE DIRECTO', y='count', text='count', color_discrete_sequence=['#1E3A8A'])
-                        fig_res.update_layout(height=250, margin=dict(t=10, b=0, l=0, r=0))
-                        st.plotly_chart(fig_res, use_container_width=True)
-            with c_low2:
-                with st.container(border=True):
-                    st.markdown("<p style='text-align:center; background-color:#F1F5F9; padding:5px;'><b>Dotación por Área</b></p>", unsafe_allow_html=True)
-                    if 'ÁREA' in df_fil.columns:
-                        df_a = df_fil['ÁREA'].value_counts().reset_index()
-                        fig_a = px.bar(df_a, x='ÁREA', y='count', text='count', color_discrete_sequence=['#64748B'])
-                        fig_a.update_layout(height=250, margin=dict(t=10, b=0, l=0, r=0))
-                        st.plotly_chart(fig_a, use_container_width=True)
-
-    with tab2:
-        st.subheader("🎂 Próximos Cumpleaños")
-        if col_fecha:
-            mes_actual = datetime.now().month
-            cumples_mes = df_cump[df_cump['FECHA_LIMPIA'].dt.month == mes_actual].copy()
-            if not cumples_mes.empty:
-                cumples_mes['DIA'] = cumples_mes['FECHA_LIMPIA'].dt.day
-                cumples_mes = cumples_mes.sort_values('DIA')
-                cols = st.columns(5)
-                for i, row in cumples_mes.iterrows():
-                    with cols[i % 5]:
-                        with st.container(border=True):
-                            st.markdown(f"<h3 style='color:#1E3A8A; text-align:center;'>{int(row['DIA'])}</h3>", unsafe_allow_html=True)
-                            st.markdown(f"<p style='text-align:center; font-size:14px;'>{row['APELLIDO Y NOMBRE']}</p>", unsafe_allow_html=True)
-
-except Exception as e:
-    st.error(f"Error: {e}")
+                        fig_res =
