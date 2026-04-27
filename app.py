@@ -13,20 +13,19 @@ PALETA_AZUL_GRIS = ['#1E3A8A', '#64748B', '#3B82F6', '#94A3B8', '#1D4ED8', '#CBD
 @st.cache_data(ttl=60)
 def cargar_datos(gid):
     try:
-        # Limpiamos el GID por si viene con basura del enlace
-        gid_limpio = str(gid).split('#')[-1].replace('gid=', '')
-        sheet_url = f"https://docs.google.com/spreadsheets/d/1ElY2OaVFq3GzNiWoe69HCtnmQZe8rEK7/export?format=csv&gid={gid_limpio}"
-        df = pd.read_csv(sheet_url)
+        # Forzamos la URL de exportación limpia
+        url = f"https://docs.google.com/spreadsheets/d/1ElY2OaVFq3GzNiWoe69HCtnmQZe8rEK7/export?format=csv&gid={gid}"
+        df = pd.read_csv(url)
         df.columns = df.columns.str.strip().str.upper()
         return df
     except Exception as e:
-        st.error(f"Error cargando hoja {gid}: {e}")
+        st.error(f"Error en hoja {gid}: {e}")
         return pd.DataFrame()
 
 try:
-    # CARGA DE DATOS (IDs confirmados por tu enlace)
-    df_main = cargar_datos("1543772338")
-    df_cump = cargar_datos("540729566")
+    # CARGA DE DATOS (IDs exactos de tus hojas)
+    df_main = cargar_datos("1543772338") # Base principal
+    df_cump = cargar_datos("540729566")  # Hoja de Cumpleaños
     
     if not df_main.empty and 'LEGAJO' in df_main.columns:
         df_main = df_main.dropna(subset=['LEGAJO'])
@@ -34,10 +33,9 @@ try:
     # --- ENCABEZADO ---
     col_logo, col_titulo = st.columns([1, 4])
     with col_logo:
-        archivos = os.listdir('.')
-        imagen_logo = next((f for f in archivos if f.lower().endswith(('.png', '.jpg', '.jpeg')) and 'app' not in f), None)
-        if imagen_logo:
-            st.image(imagen_logo, width=150)
+        archivos = [f for f in os.listdir('.') if f.lower().endswith(('.png', '.jpg', '.jpeg'))]
+        if archivos:
+            st.image(archivos[0], width=150)
 
     with col_titulo:
         st.markdown("<h1 style='color: #1E3A8A; margin-top: 10px;'>Gestión de RRHH Exincor</h1>", unsafe_allow_html=True)
@@ -81,7 +79,7 @@ try:
             st.dataframe(df_fil[['APELLIDO Y NOMBRE']], hide_index=True, height=650)
 
         with c_graf:
-            # Indicadores 1, 2, 3 y 4: Anillos
+            # 1, 2, 3 y 4: Anillos
             c1, c2, c3, c4 = st.columns(4)
             cols_anillo = ['GÉNERO', 'CATEGORÍA', tipo_col, 'CENTRO DE COSTOS']
             tits_anillo = ['Género', 'Categoría', 'Contratación', 'C. Costos']
@@ -93,14 +91,14 @@ try:
                         fig.update_layout(height=180, margin=dict(t=30, b=0, l=0, r=0), showlegend=False, title={'text': tit, 'x': 0.5})
                         st.plotly_chart(fig, use_container_width=True)
 
-            # Indicador 5: Puestos
+            # 5: Puestos
             if 'PUESTO' in df_fil.columns:
                 df_p = df_fil['PUESTO'].value_counts().reset_index()
                 fig_p = px.bar(df_p, x='PUESTO', y='count', text='count', color_discrete_sequence=['#3B82F6'], title="Dotación por Puesto")
                 fig_p.update_layout(height=280, xaxis_title="", yaxis_title="")
                 st.plotly_chart(fig_p, use_container_width=True)
 
-            # Indicadores 6 y 7: Responsables y Áreas
+            # 6 y 7: Responsables y Áreas
             cl1, cl2 = st.columns([2, 1])
             with cl1:
                 if 'RESPONSABLE DIRECTO' in df_fil.columns:
@@ -111,23 +109,20 @@ try:
             with cl2:
                 if 'ÁREA' in df_fil.columns:
                     d_a = df_fil['ÁREA'].value_counts().reset_index()
-                    fig_a = px.bar(d_a, x='ÁREA', y='count', text='count', color_discrete_sequence=['#64748B'], title="Áreas")
+                    fig_a = px.bar(df_a, x='ÁREA', y='count', text='count', color_discrete_sequence=['#64748B'], title="Áreas")
                     fig_a.update_layout(height=250)
                     st.plotly_chart(fig_a, use_container_width=True)
 
     with tab2:
         st.subheader("🎂 Cumpleaños y Trayectoria del Mes")
         
-        # Identificar columnas de fecha
+        # Identificar columnas
         col_f_nac = next((c for c in df_cump.columns if 'FECHA' in c or 'NACIMIENTO' in c), None)
         col_f_ing = next((c for c in df_main.columns if 'INGRESO' in c or 'ALTA' in c), None)
 
         if col_f_nac and not df_cump.empty:
-            # Convertimos a fecha asegurando el formato día/mes/año
             df_cump['FECHA_NAC'] = pd.to_datetime(df_cump[col_f_nac], errors='coerce', dayfirst=True)
             hoy = datetime.now()
-            
-            # Filtrar por mes actual
             df_mes = df_cump[df_cump['FECHA_NAC'].dt.month == hoy.month].copy()
             
             if not df_mes.empty:
@@ -141,7 +136,6 @@ try:
                             st.markdown(f"### 📅 Día {int(row['DIA'])}")
                             st.markdown(f"**{row['APELLIDO Y NOMBRE']}**")
                             
-                            # Buscar antigüedad cruzando con la hoja principal
                             if col_f_ing:
                                 m = df_main[df_main['APELLIDO Y NOMBRE'] == row['APELLIDO Y NOMBRE']]
                                 if not m.empty:
@@ -153,9 +147,9 @@ try:
                             st.divider()
                             st.button("Felicitar ✨", key=f"btn_cump_{idx}", use_container_width=True)
             else:
-                st.info(f"No se encontraron cumpleaños para el mes de {hoy.strftime('%B')}.")
+                st.info(f"No hay cumpleaños en {hoy.strftime('%B')}.")
         else:
-            st.warning("No se detectó la columna de fechas en la pestaña de cumpleaños.")
+            st.warning("Verifica los nombres de las columnas en el Excel.")
 
 except Exception as e:
-    st.error(f"Ocurrió un error general: {e}")
+    st.error(f"Error crítico: {e}")
