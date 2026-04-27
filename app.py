@@ -85,14 +85,31 @@ try:
                 fig_p = px.bar(df_fil['PUESTO'].value_counts().reset_index(), x='PUESTO', y='count', text='count', color_discrete_sequence=['#3B82F6'], title="Puestos")
                 st.plotly_chart(fig_p.update_layout(height=300), use_container_width=True)
             
-            # --- RANKING DE EDADES POR ÁREA (NUEVO INDICADOR) ---
+          # --- ANÁLISIS DE EDADES POR ÁREA (DISTRIBUCIÓN) ---
             if 'EDAD' in df_fil.columns and 'ÁREA' in df_fil.columns:
-                # Convertimos edad a número por las dudas
-                df_fil['EDAD'] = pd.to_numeric(df_fil['EDAD'], errors='coerce')
-                ranking_edad = df_fil.groupby('ÁREA')['EDAD'].mean().reset_index().sort_values('EDAD', ascending=False)
-                fig_edad = px.bar(ranking_edad, x='EDAD', y='ÁREA', orientation='h', text_auto='.1f', 
-                                  title="Ranking: Promedio de Edad por Área", color_discrete_sequence=['#1E3A8A'])
-                st.plotly_chart(fig_edad.update_layout(height=300), use_container_width=True)
+                df_edad = df_fil.copy()
+                df_edad['EDAD'] = pd.to_numeric(df_edad['EDAD'], errors='coerce')
+                df_edad = df_edad.dropna(subset=['EDAD'])
+
+                # Creamos rangos de edad para que sea más visual
+                bins = [0, 25, 35, 45, 55, 100]
+                labels = ['18-25', '26-35', '36-45', '46-55', '+55']
+                df_edad['RANGO ETARIO'] = pd.cut(df_edad['EDAD'], bins=bins, labels=labels)
+
+                # Agrupamos por Área y Rango
+                df_dist = df_edad.groupby(['ÁREA', 'RANGO ETARIO'], observed=True).size().reset_index(name='CANTIDAD')
+
+                # Gráfico de Barras Apiladas (Muestra la "foto" generacional de cada área)
+                fig_edad = px.bar(df_dist, 
+                                  x='ÁREA', 
+                                  y='CANTIDAD', 
+                                  color='RANGO ETARIO',
+                                  title="Composición Generacional por Área",
+                                  barmode='stack',
+                                  color_discrete_sequence=px.colors.sequential.Blues_r,
+                                  text_auto=True)
+                
+                st.plotly_chart(fig_edad.update_layout(height=400, xaxis_title="", yaxis_title="Personas"), use_container_width=True)
 
             r1, r2 = st.columns([2, 1])
             if 'RESPONSABLE DIRECTO' in df_fil.columns: r1.plotly_chart(px.bar(df_fil['RESPONSABLE DIRECTO'].value_counts().reset_index(), x='RESPONSABLE DIRECTO', y='count', color_discrete_sequence=['#1E3A8A'], title="Responsables").update_layout(height=250), use_container_width=True)
