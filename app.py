@@ -85,31 +85,55 @@ try:
                 fig_p = px.bar(df_fil['PUESTO'].value_counts().reset_index(), x='PUESTO', y='count', text='count', color_discrete_sequence=['#3B82F6'], title="Puestos")
                 st.plotly_chart(fig_p.update_layout(height=300), use_container_width=True)
             
-          # --- ANÁLISIS DE EDADES POR ÁREA (DISTRIBUCIÓN) ---
+        # --- ANÁLISIS DE EDADES POR ÁREA (DISTRIBUCIÓN MEJORADA) ---
             if 'EDAD' in df_fil.columns and 'ÁREA' in df_fil.columns:
                 df_edad = df_fil.copy()
                 df_edad['EDAD'] = pd.to_numeric(df_edad['EDAD'], errors='coerce')
                 df_edad = df_edad.dropna(subset=['EDAD'])
 
-                # Creamos rangos de edad para que sea más visual
+                # Rangos etarios
                 bins = [0, 25, 35, 45, 55, 100]
                 labels = ['18-25', '26-35', '36-45', '46-55', '+55']
                 df_edad['RANGO ETARIO'] = pd.cut(df_edad['EDAD'], bins=bins, labels=labels)
 
-                # Agrupamos por Área y Rango
+                # Agrupación
                 df_dist = df_edad.groupby(['ÁREA', 'RANGO ETARIO'], observed=True).size().reset_index(name='CANTIDAD')
 
-                # Gráfico de Barras Apiladas (Muestra la "foto" generacional de cada área)
+                # Paleta personalizada: Mezcla de Azules y Grises para diferenciar
+                # 18-25: Gris Claro, 26-35: Azul, 36-45: Gris Medio, 46-55: Azul Oscuro, +55: Gris Oscuro
+                colores_discretos = {
+                    '18-25': '#CBD5E1', # Gris claro
+                    '26-35': '#3B82F6', # Azul brillante
+                    '36-45': '#94A3B8', # Gris medio
+                    '46-55': '#1E3A8A', # Azul Exincor
+                    '+55': '#475569'    # Gris oscuro
+                }
+
                 fig_edad = px.bar(df_dist, 
                                   x='ÁREA', 
                                   y='CANTIDAD', 
                                   color='RANGO ETARIO',
-                                  title="Composición Generacional por Área",
+                                  title="Distribución Generacional por Área",
                                   barmode='stack',
-                                  color_discrete_sequence=px.colors.sequential.Blues_r,
-                                  text_auto=True)
+                                  color_discrete_map=colores_discretos,
+                                  text='CANTIDAD') # Forzamos el texto de la cantidad
                 
-                st.plotly_chart(fig_edad.update_layout(height=400, xaxis_title="", yaxis_title="Personas"), use_container_width=True)
+                # Ajustes de tamaño de fuente y legibilidad
+                fig_edad.update_traces(
+                    textfont_size=16,      # Números más grandes
+                    textposition='inside', # Números dentro de las barras
+                    cliponaxis=False
+                )
+
+                fig_edad.update_layout(
+                    height=450, 
+                    xaxis_title="", 
+                    yaxis_title="Cantidad de Personas",
+                    legend_title="Rango Etario",
+                    font=dict(size=14)     # Tamaño de letra general
+                )
+                
+                st.plotly_chart(fig_edad, use_container_width=True)
 
             r1, r2 = st.columns([2, 1])
             if 'RESPONSABLE DIRECTO' in df_fil.columns: r1.plotly_chart(px.bar(df_fil['RESPONSABLE DIRECTO'].value_counts().reset_index(), x='RESPONSABLE DIRECTO', y='count', color_discrete_sequence=['#1E3A8A'], title="Responsables").update_layout(height=250), use_container_width=True)
