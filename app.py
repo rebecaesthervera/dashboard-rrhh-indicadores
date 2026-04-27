@@ -76,7 +76,8 @@ try:
         with col_izq:
             with st.container(border=True):
                 st.markdown("<p style='text-align:center; color:#64748B; font-size:18px;'>Total Activos</p>", unsafe_allow_html=True)
-                st.markdown(f<h1 style='text-align:center; color:#1E3A8A;'>{len(df_fil)}</h1>", unsafe_allow_html=True)
+                # LÍNEA CORREGIDA AQUÍ:
+                st.markdown(f"<h1 style='text-align:center; color:#1E3A8A;'>{len(df_fil)}</h1>", unsafe_allow_html=True)
             with st.container(border=True):
                 st.dataframe(df_fil[['APELLIDO Y NOMBRE']], hide_index=True, height=540, use_container_width=True)
 
@@ -90,7 +91,7 @@ try:
                     fig_p.update_layout(height=300, margin=dict(t=10, b=0, l=0, r=0), xaxis_title="", yaxis_title="")
                     st.plotly_chart(fig_p, use_container_width=True)
 
-            # Nuevo gráfico por Responsable Directo
+            # Gráfico por Responsable Directo
             with st.container(border=True):
                 st.markdown("<p style='text-align:center; background-color:#F1F5F9; padding:5px;'><b>Distribución por Responsable Directo</b></p>", unsafe_allow_html=True)
                 if 'RESPONSABLE DIRECTO' in df_fil.columns:
@@ -104,8 +105,8 @@ try:
                 st.markdown("<p style='text-align:center; background-color:#F1F5F9; padding:5px;'><b>Centro de Costos</b></p>", unsafe_allow_html=True)
                 if 'CENTRO DE COSTOS' in df_fil.columns:
                     df_cc = df_fil['CENTRO DE COSTOS'].value_counts().reset_index()
-                    fig_cc = px.pie(df_cc, names='CENTRO DE COSTOS', hole=0.5, color_discrete_sequence=PALETA_AZUL_GRIS[2:])
-                    # Se corrigió para que el anillo sea completo
+                    fig_cc = px.pie(df_cc, names='CENTRO DE COSTOS', values='count', hole=0.5, color_discrete_sequence=PALETA_AZUL_GRIS[2:])
+                    # Se quitó el espacio en blanco (ahora es un anillo completo)
                     fig_cc.update_layout(height=280, margin=dict(t=0, b=0, l=0, r=0), showlegend=False)
                     st.plotly_chart(fig_cc, use_container_width=True)
 
@@ -118,7 +119,6 @@ try:
                     st.plotly_chart(fig_a, use_container_width=True)
 
     with tab2:
-        # (Sección de cumpleaños sin cambios)
         st.subheader("🎂 Próximos Cumpleaños")
         if col_fecha:
             mes_actual = datetime.now().month
