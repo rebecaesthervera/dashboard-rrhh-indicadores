@@ -24,7 +24,7 @@ try:
         
     df_cump = cargar_datos("540729566")
     
-    # --- PROCESAMIENTO DE CUMPLEAÑOS ---
+    # --- CUMPLEAÑOS ---
     col_fecha = next((c for c in df_cump.columns if 'FECHA' in c or 'NACIMIENTO' in c), None)
     cumples_hoy_lista = []
     if col_fecha:
@@ -54,7 +54,8 @@ try:
             resp_opts = ["Todos"] + sorted(df_main['RESPONSABLE DIRECTO'].dropna().unique().tolist()) if 'RESPONSABLE DIRECTO' in df_main.columns else ["Todos"]
             sel_resp = st.selectbox("Responsable Directo", resp_opts)
         with col_f3:
-            mod_opts = ["Todas"] + sorted(df_main['MODALIDAD DE CONTRATACIÓN'].dropna().unique().tolist()) if 'MODALIDAD DE CONTRATACIÓN' in df_main.columns else ["Todas"]
+            mod_col = 'MODALIDAD DE CONTRATACIÓN'
+            mod_opts = ["Todas"] + sorted(df_main[mod_col].dropna().unique().tolist()) if mod_col in df_main.columns else ["Todas"]
             sel_mod = st.selectbox("Modalidad", mod_opts)
         with col_f4:
             area_opts = ["Todas"] + sorted(df_main['ÁREA'].dropna().unique().tolist()) if 'ÁREA' in df_main.columns else ["Todas"]
@@ -71,7 +72,7 @@ try:
         if sel_area != "Todas": df_fil = df_fil[df_fil['ÁREA'] == sel_area]
         if sel_nombre != "Todos": df_fil = df_fil[df_fil['APELLIDO Y NOMBRE'] == sel_nombre]
 
-        # --- DISTRIBUCIÓN VISUAL ---
+        # --- DISTRIBUCIÓN ---
         col_izq, col_der = st.columns([1.2, 3.8])
 
         with col_izq:
@@ -82,7 +83,7 @@ try:
                 st.dataframe(df_fil[['APELLIDO Y NOMBRE']], hide_index=True, height=750, use_container_width=True)
 
         with col_der:
-            # Fila 1: Gráficos de Anillo (Proporciones)
+            # Fila 1: 4 Gráficos de Anillo
             c1, c2, c3, c4 = st.columns(4)
             
             with c1:
@@ -104,8 +105,10 @@ try:
             with c3:
                 with st.container(border=True):
                     st.markdown("<p style='text-align:center; font-size:13px;'><b>Modalidad</b></p>", unsafe_allow_html=True)
-                    if 'MODALIDAD DE CONTRATACIÓN' in df_fil.columns:
-                        fig = px.pie(df_fil, names='MODALIDAD DE CONTRATACIÓN', hole=0.6, color_discrete_sequence=PALETA_AZUL_GRIS[4:])
+                    if mod_col in df_fil.columns:
+                        # Limpieza para el gráfico: quitar nulos para evitar huecos blancos
+                        df_mod = df_fil[df_fil[mod_col].notna()]
+                        fig = px.pie(df_mod, names=mod_col, hole=0.6, color_discrete_sequence=PALETA_AZUL_GRIS[4:])
                         fig.update_layout(height=150, margin=dict(t=0, b=0, l=0, r=0), showlegend=False)
                         st.plotly_chart(fig, use_container_width=True)
 
@@ -113,13 +116,14 @@ try:
                 with st.container(border=True):
                     st.markdown("<p style='text-align:center; font-size:13px;'><b>Centro de Costos</b></p>", unsafe_allow_html=True)
                     if 'CENTRO DE COSTOS' in df_fil.columns:
-                        fig = px.pie(df_fil, names='CENTRO DE COSTOS', hole=0.6, color_discrete_sequence=PALETA_AZUL_GRIS)
+                        df_cc_plot = df_fil[df_fil['CENTRO DE COSTOS'].notna()]
+                        fig = px.pie(df_cc_plot, names='CENTRO DE COSTOS', hole=0.6, color_discrete_sequence=PALETA_AZUL_GRIS)
                         fig.update_layout(height=150, margin=dict(t=0, b=0, l=0, r=0), showlegend=False)
                         st.plotly_chart(fig, use_container_width=True)
 
-            # Fila 2: Barras Verticales (Puestos y Áreas)
+            # Fila 2: Barras Puesto
             with st.container(border=True):
-                st.markdown("<p style='text-align:center; background-color:#F1F5F9; padding:5px;'><b>Dotación por Puesto (Bloques hacia arriba)</b></p>", unsafe_allow_html=True)
+                st.markdown("<p style='text-align:center; background-color:#F1F5F9; padding:5px;'><b>Dotación por Puesto</b></p>", unsafe_allow_html=True)
                 if 'PUESTO' in df_fil.columns:
                     df_p = df_fil['PUESTO'].value_counts().reset_index()
                     fig_p = px.bar(df_p, x='PUESTO', y='count', text='count', color_discrete_sequence=['#3B82F6'])
@@ -146,6 +150,7 @@ try:
                         st.plotly_chart(fig_a, use_container_width=True)
 
     with tab2:
+        # Sección de cumpleaños
         st.subheader("🎂 Próximos Cumpleaños")
         if col_fecha:
             mes_actual = datetime.now().month
