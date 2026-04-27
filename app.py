@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import plotly.express as px
 from datetime import datetime
+import os
 
 # 1. CONFIGURACIÓN DE PÁGINA
 st.set_page_config(page_title="Gestión Exincor", layout="wide")
@@ -20,20 +21,20 @@ def cargar_datos(gid):
         return pd.DataFrame()
 
 try:
-    # Carga de datos
     df_main = cargar_datos("1543772338")
     df_cump = cargar_datos("540729566")
     
-    if not df_main.empty and 'LEGAJO' in df_main.columns:
-        df_main = df_main.dropna(subset=['LEGAJO'])
-
-    # --- ENCABEZADO CON LOGO ---
+    # --- BUSCADOR INTELIGENTE DE LOGO ---
     col_logo, col_titulo = st.columns([1, 4])
     with col_logo:
-        try:
-            st.image("Logotipo_Exincor_Final.png", width=150)
-        except:
-            st.info("ℹ️ Sube 'Logotipo_Exincor_Final.png' a GitHub")
+        # Buscamos cualquier archivo que sea imagen en tu carpeta
+        archivos = os.listdir('.')
+        imagen_logo = next((f for f in archivos if f.lower().endswith(('.png', '.jpg', '.jpeg')) and 'app' not in f), None)
+        
+        if imagen_logo:
+            st.image(imagen_logo, width=150)
+        else:
+            st.info("ℹ️ Sube el logo a GitHub")
 
     with col_titulo:
         st.markdown("<h1 style='color: #1E3A8A; margin-top: 10px;'>Dotación Exincor</h1>", unsafe_allow_html=True)
@@ -64,41 +65,38 @@ try:
 
         # Aplicar Filtros
         df_fil = df_main.copy()
-        if sel_conv != "Todos": df_fil = df_fil[df_fil['CONVENIO'] == sel_conv]
-        if sel_resp != "Todos": df_fil = df_fil[df_fil['RESPONSABLE DIRECTO'] == sel_resp]
-        if sel_tipo != "Todos": df_fil = df_fil[df_fil[tipo_col] == sel_tipo]
-        if sel_area != "Todas": df_fil = df_fil[df_fil['ÁREA'] == sel_area]
-        if sel_nombre != "Todos": df_fil = df_fil[df_fil['APELLIDO Y NOMBRE'] == sel_nombre]
+        if 'CONVENIO' in df_fil.columns and sel_conv != "Todos": df_fil = df_fil[df_fil['CONVENIO'] == sel_conv]
+        if 'RESPONSABLE DIRECTO' in df_fil.columns and sel_resp != "Todos": df_fil = df_fil[df_fil['RESPONSABLE DIRECTO'] == sel_resp]
+        if tipo_col in df_fil.columns and sel_tipo != "Todos": df_fil = df_fil[df_fil[tipo_col] == sel_tipo]
+        if 'ÁREA' in df_fil.columns and sel_area != "Todas": df_fil = df_fil[df_fil['ÁREA'] == sel_area]
+        if 'APELLIDO Y NOMBRE' in df_fil.columns and sel_nombre != "Todos": df_fil = df_fil[df_fil['APELLIDO Y NOMBRE'] == sel_nombre]
 
-        # --- CUERPO DEL DASHBOARD ---
+        # --- CUERPO ---
         col_izq, col_der = st.columns([1.2, 3.8])
-
         with col_izq:
             st.metric("Total Activos", len(df_fil))
-            st.dataframe(df_fil[['APELLIDO Y NOMBRE']], hide_index=True, height=600, use_container_width=True)
+            if 'APELLIDO Y NOMBRE' in df_fil.columns:
+                st.dataframe(df_fil[['APELLIDO Y NOMBRE']], hide_index=True, height=600, use_container_width=True)
 
         with col_der:
-            # Fila 1: 4 Anillos
             c1, c2, c3, c4 = st.columns(4)
-            for col_ui, col_df, titulo, paleta in zip([c1, c2, c3, c4], 
-                                                     ['GÉNERO', 'CATEGORÍA', 'TIPO DE CONTRATACIÓN', 'CENTRO DE COSTOS'],
-                                                     ['Género', 'Categoría', 'Contratación', 'Centro Costos'],
-                                                     [PALETA_AZUL_GRIS, PALETA_AZUL_GRIS[2:], PALETA_AZUL_GRIS[4:], PALETA_AZUL_GRIS]):
+            columnas_anillo = ['GÉNERO', 'CATEGORÍA', 'TIPO DE CONTRATACIÓN', 'CENTRO DE COSTOS']
+            titulos_anillo = ['Género', 'Categoría', 'Contratación', 'Centro Costos']
+            
+            for col_ui, col_df, tit in zip([c1, c2, c3, c4], columnas_anillo, titulos_anillo):
                 with col_ui:
                     if col_df in df_fil.columns:
-                        data_pie = df_fil[col_df].value_counts().reset_index()
-                        fig = px.pie(data_pie, names=col_df, values='count', hole=0.6, color_discrete_sequence=paleta)
-                        fig.update_layout(height=180, margin=dict(t=30, b=0, l=0, r=0), showlegend=False, title={'text': titulo, 'x': 0.5})
+                        d_pie = df_fil[col_df].value_counts().reset_index()
+                        fig = px.pie(d_pie, names=col_df, values='count', hole=0.6, color_discrete_sequence=PALETA_AZUL_GRIS)
+                        fig.update_layout(height=200, margin=dict(t=30, b=0, l=0, r=0), showlegend=False, title={'text': tit, 'x': 0.5})
                         st.plotly_chart(fig, use_container_width=True)
 
-            # Fila 2: Puestos
             if 'PUESTO' in df_fil.columns:
                 df_p = df_fil['PUESTO'].value_counts().reset_index()
                 fig_p = px.bar(df_p, x='PUESTO', y='count', text='count', color_discrete_sequence=['#3B82F6'], title="Dotación por Puesto")
-                fig_p.update_layout(height=300, margin=dict(t=50, b=0, l=0, r=0), xaxis_title="", yaxis_title="")
+                fig_p.update_layout(height=300, xaxis_title="", yaxis_title="")
                 st.plotly_chart(fig_p, use_container_width=True)
 
-            # Fila 3: Responsables y Áreas
             cl1, cl2 = st.columns([2, 1])
             with cl1:
                 if 'RESPONSABLE DIRECTO' in df_fil.columns:
@@ -112,9 +110,8 @@ try:
                     st.plotly_chart(fig_a, use_container_width=True)
 
     with tab2:
-        st.subheader("🎂 Cumpleaños del Mes")
-        if not df_cump.empty:
-            st.info("Revisa tu hoja de cumpleaños en Google Sheets para ver la lista completa.")
+        st.subheader("🎂 Próximos Cumpleaños")
+        st.write("Consulta la pestaña de cumpleaños en tu Google Sheets.")
 
 except Exception as e:
-    st.error(f"Ocurrió un error: {e}")
+    st.error(f"Error: {e}")
