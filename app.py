@@ -98,13 +98,24 @@ try:
                         df_edad_valida['RANGO_EDAD'] = pd.cut(df_edad_valida['EDAD'], bins=bins, labels=labels, right=False)
                         promedio_edad = df_edad_valida['EDAD'].mean()
                         
+                        # Cálculo automático de Densidad de Personal Adulto/Senior (> 45 años)
+                        adultos_mayores = df_edad_valida[df_edad_valida['EDAD'] >= 46]
+                        cant_adultos = len(adultos_mayores)
+                        porc_adultos = (cant_adultos / len(df_edad_valida)) * 100
+                        
                         fig_edad = px.histogram(df_edad_valida, x='RANGO_EDAD', 
                                                 title=f"Distribución de la Nómina por Rangos de Edad (Promedio: {promedio_edad:.1f} años)",
                                                 category_orders={'RANGO_EDAD': labels},
                                                 color_discrete_sequence=['#1E3A8A'])
                         fig_edad.update_layout(xaxis_title="Rango de Edad", yaxis_title="Cantidad de Colaboradores", height=300)
                         st.plotly_chart(fig_edad, use_container_width=True)
-                        st.info(f"**Resumen Ejecutivo (Edad):** La dotación activa presenta una edad promedio de **{promedio_edad:.1f} años**. Este gráfico detalla la concentración del capital humano por franjas etarias, actuando como insumo clave para planes de sucesión y estrategias de retención del conocimiento.")
+                        
+                        st.info(
+                            f"**Resumen Ejecutivo (Edad):** La dotación activa presenta una edad promedio de **{promedio_edad:.1f} años**. "
+                            f"Es estratégico notar que el **{porc_adultos:.1f}%** de la nómina (**{cant_adultos} colaboradores**) se concentra en los rangos "
+                            f"de **46 años o más**, representando el bloque de mayor experiencia acumulada de la empresa. Este indicador permite anticipar "
+                            f"políticas de salud institucional, ergonomía y planes estructurados de transferencia de conocimiento."
+                        )
             
             with c_dem2:
                 if 'RESPONSABLE DIRECTO' in df_fil.columns:
@@ -137,7 +148,6 @@ try:
                         fig.update_layout(height=220, margin=dict(t=30, b=0, l=0, r=0), showlegend=False, title={'text': t, 'x': 0.5})
                         ui.plotly_chart(fig, use_container_width=True)
                         
-                # Resumen analítico consolidado para los gráficos de torta de la distribución detallada
                 if not df_fil.empty:
                     gen_pred = df_fil['GÉNERO'].value_counts().index[0] if 'GÉNERO' in df_fil.columns and not df_fil['GÉNERO'].empty else "N/A"
                     cat_pred = df_fil['CATEGORÍA'].value_counts().index[0] if 'CATEGORÍA' in df_fil.columns and not df_fil['CATEGORÍA'].empty else "N/A"
@@ -196,10 +206,21 @@ try:
             with c2:
                 st.plotly_chart(px.bar(df_rot, x='MES', y=['ALTAS', 'BAJAS'], barmode='group', title="Movimientos"), use_container_width=True)
             
-            # Resumen analítico dinámico de rotación
-            ult_mes = df_rot['MES'].iloc[-1] if 'MES' in df_rot.columns else "el período"
-            ult_rot = df_rot['ROT_VAL'].iloc[-1] if 'ROT_VAL' in df_rot.columns else 0
-            st.info(f"**Interpretación de Rotación:** El índice de rotación de personal (*Turnover*) registra su última medición en **{ult_mes}** reflejando un **{ult_rot:.1f}%**. El análisis cruzado del gráfico de movimientos permite identificar si las variaciones responden a un incremento estacional de bajas o a un fortalecimiento de las altas por ingresos planeados.")
+            # Corrección del cálculo dinámico contra el nan%
+            df_rot_valida = df_rot.dropna(subset=['ROT_VAL'])
+            if not df_rot_valida.empty:
+                ult_fila = df_rot_valida.iloc[-1]
+                ult_mes = ult_fila['MES']
+                ult_rot = ult_fila['ROT_VAL']
+                texto_rotacion = f"registra su última medición disponible en **{ult_mes}** reflejando un **{ult_rot:.1f}%**."
+            else:
+                texto_rotacion = "no registra porcentajes numéricos procesables en el último período."
+                
+            st.info(
+                f"**Interpretación de Rotación:** El índice de rotación de personal (*Turnover*) {texto_rotacion} "
+                f"El análisis cruzado del gráfico de movimientos permite identificar si las variaciones responden a un incremento "
+                f"estacional de bajas o a un fortalecimiento de las altas por ingresos planeados."
+            )
 
     # --- TAB 4: DETALLE DE BAJAS ---
     with tab4:
@@ -228,7 +249,6 @@ try:
                 fig_tipo_b = px.pie(df_e, names=col_t, title="Tipo de Egreso", hole=0.4)
                 st.plotly_chart(fig_tipo_b, use_container_width=True)
             
-            # Resumen analítico dinámico de causas y tipos de egresos
             motivo_pred = df_e['MOTIVO'].value_counts().index[0] if 'MOTIVO' in df_e.columns and not df_e['MOTIVO'].empty else "N/A"
             tipo_pred = df_e[col_t].value_counts().index[0] if not df_e[col_t].empty else "N/A"
             st.info(f"**Análisis Crítico de Egresos:** La principal causa registrada de salida corresponde a **{motivo_pred}**, mientras que la modalidad de egreso mayoritaria se clasifica como **{tipo_pred}**. Monitorear estas variables de forma integrada resulta crucial para activar acciones correctivas en los procesos de selección, el clima interno o la estructura de compensaciones.")
