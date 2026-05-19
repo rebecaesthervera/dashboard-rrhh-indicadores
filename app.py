@@ -9,7 +9,7 @@ st.set_page_config(page_title="Gestión RRHH Exincor", layout="wide")
 
 # 2. COLORES Y TRADUCCIONES
 PALETA_AZUL_GRIS = ['#1E3A8A', '#64748B', '#3B82F6', '#94A3B8', '#1D4ED8', '#CBD5E1', '#0F172A']
-COLOR_BAJAS_SUAVE = '#64748B'  # Color sofisticado y menos agresivo que el rojo para las desvinculaciones
+COLOR_BAJAS_SUAVE = '#64748B'  # Tono corporativo sobrio y elegante para el gráfico de barras de bajas
 MESES_ES = {
     'January': 'Enero', 'February': 'Febrero', 'March': 'Marzo', 'April': 'Abril',
     'May': 'Mayo', 'June': 'Junio', 'July': 'Julio', 'August': 'Agosto',
@@ -61,7 +61,7 @@ try:
     
     st.markdown("---")
     
-    # NUEVO ORDEN DE PESTAÑAS: Cumpleaños pasa al final
+    # Mantenemos el orden estratégico solicitado (Cumpleaños al final)
     tab1, tab2, tab3, tab4 = st.tabs(["📊 Panel de Dotación", "📉 Rotación Mensual", "❌ Detalle de Bajas", "🎂 Cumpleaños y Aniversarios"])
 
     # --- TAB 1: PANEL DE DOTACIÓN ---
@@ -186,7 +186,7 @@ try:
                 
             st.info(f"**Interpretación de Rotación:** El índice de rotación de personal (*Turnover*) {texto_rotacion}")
 
-    # --- TAB 3: DETALLE DE BAJAS (REDISEÑADA COMPLETAMENTE) ---
+    # --- TAB 3: DETALLE DE BAJAS ---
     with tab3:
         st.header("❌ Detalle y Registro de Egresos")
         if not df_baj.empty:
@@ -195,7 +195,6 @@ try:
             df_e['MES_NOMBRE'] = df_e['FECHA_BAJA_DT'].dt.strftime('%B').map(MESES_ES)
             df_e['MES_NUM'] = df_e['FECHA_BAJA_DT'].dt.month
             
-            # Filtro dinámico cruzado por área si se seleccionó en el panel principal
             if 'sel_area' in locals() and sel_area != "Todas":
                 if 'ÁREA' in df_e.columns:
                     df_e = df_e[df_e['ÁREA'] == sel_area]
@@ -203,13 +202,12 @@ try:
             b_mes = df_e.groupby(['MES_NUM', 'MES_NOMBRE']).size().reset_index(name='CANTIDAD').sort_values('MES_NUM')
             col_t = [c for c in df_e.columns if 'TIPO DE BAJA' in c][0]
 
-            # Fila Superior: Gráficos estilizados, más chicos y con colores corporativos suaves
             g1, g2, g3 = st.columns([1.5, 1.25, 1.25])
             
             with g1:
-                # Barras mensuales más bajas y en color sobrio grisáceo
                 fig_bar_bajas = px.bar(b_mes, x='MES_NOMBRE', y='CANTIDAD', title="Bajas por Mes", text='CANTIDAD', color_discrete_sequence=[COLOR_BAJAS_SUAVE])
-                fig_bar_bajas.update_layout(height=180, margin=dict(t=30, b=10, l=10, r=10), yaxes_visible=False)
+                # CORRECCIÓN AQUÍ: Cambiado de yaxes_visible a yaxis_visible para corregir el error crítico de Plotly
+                fig_bar_bajas.update_layout(height=180, margin=dict(t=30, b=10, l=10, r=10), yaxis_visible=False)
                 st.plotly_chart(fig_bar_bajas, use_container_width=True)
                 
             with g2:
@@ -224,11 +222,9 @@ try:
 
             st.markdown("---")
             
-            # Fila Inferior: Incorporación de la Nómina Detallada de Bajas solicitada
             st.markdown("<p style='font-weight: bold; font-size: 16px; color: #1E3A8A;'>📋 Registro Nominal de Personal Desvinculado</p>", unsafe_allow_html=True)
             
             columnas_mostrar = ['APELLIDO Y NOMBRE', 'ÁREA', 'FECHA DE BAJA', 'MOTIVO', col_t]
-            # Nos aseguramos de mostrar solo columnas existentes para evitar errores
             cols_reales = [c for c in columnas_mostrar if c in df_e.columns]
             
             if not df_e.empty:
@@ -237,12 +233,11 @@ try:
             else:
                 st.info("No se registran bajas para los criterios seleccionados.")
             
-            # Resumen interpretativo
             motivo_pred = df_e['MOTIVO'].value_counts().index[0] if 'MOTIVO' in df_e.columns and not df_e['MOTIVO'].empty else "N/A"
             tipo_pred = df_e[col_t].value_counts().index[0] if not df_e[col_t].empty else "N/A"
             st.info(f"**Análisis Crítico de Egresos:** La principal causa registrada de salida corresponde a **{motivo_pred}**, clasificada mayoritariamente como **{tipo_pred}**.")
 
-    # --- TAB 4: CUMPLEAMOS Y ANIVERSARIOS (MOVIDA AL FINAL) ---
+    # --- TAB 4: CUMPLEAÑOS Y ANIVERSARIOS ---
     with tab4:
         meses_lista = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"]
         sel_mes = st.selectbox("Mes de consulta", meses_lista, index=hoy.month-1)
