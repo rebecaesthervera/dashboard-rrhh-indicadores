@@ -84,16 +84,14 @@ try:
 
             st.metric("Total Activos", len(df_fil))
             
-            # --- NUEVA SECCIÓN: INDICADORES REINCORPORADOS (EDAD Y DEPENDENCIA) ---
+            # --- SECCIÓN: INDICADORES DEMOGRÁFICOS Y ESTRUCTURA ---
             st.markdown("### 📈 Indicadores Demográficos y Estructura Organizacional")
             c_dem1, c_dem2 = st.columns(2)
             
             with c_dem1:
-                # 1. Indicador de Distribución por Edad
                 if 'EDAD' in df_fil.columns:
                     df_fil['EDAD'] = pd.to_numeric(df_fil['EDAD'], errors='coerce')
                     df_edad_valida = df_fil.dropna(subset=['EDAD'])
-                    
                     if not df_edad_valida.empty:
                         bins = [0, 25, 35, 45, 55, 100]
                         labels = ['Hasta 25 años', '26 a 35 años', '36 a 45 años', '46 a 55 años', 'Más de 55 años']
@@ -104,39 +102,28 @@ try:
                                                 title=f"Distribución de la Nómina por Rangos de Edad (Promedio: {promedio_edad:.1f} años)",
                                                 category_orders={'RANGO_EDAD': labels},
                                                 color_discrete_sequence=['#1E3A8A'])
-                        fig_edad.update_layout(xaxis_title="Rango de Edad", yaxis_title="Cantidad de Colaboradores", height=320)
+                        fig_edad.update_layout(xaxis_title="Rango de Edad", yaxis_title="Cantidad de Colaboradores", height=300)
                         st.plotly_chart(fig_edad, use_container_width=True)
-                        
-                        # Resumen escrito solicitado para la imagen de edad
-                        st.info(f"**Resumen Ejecutivo (Edad):** La dotación activa analizada presenta una edad promedio de **{promedio_edad:.1f} años**. Este gráfico detalla la concentración del capital humano por franjas etarias, actuando como insumo clave para planes de sucesión, programas de beneficios segmentados y estrategias de retención del conocimiento.")
-                else:
-                    st.warning("Columna 'EDAD' no detectada en la base de datos.")
-                    
+                        st.info(f"**Resumen Ejecutivo (Edad):** La dotación activa presenta una edad promedio de **{promedio_edad:.1f} años**. Este gráfico detalla la concentración del capital humano por franjas etarias, actuando como insumo clave para planes de sucesión y estrategias de retención del conocimiento.")
+            
             with c_dem2:
-                # 2. Indicador de Dependencia ("Quién depende de quién" / Alcance de control)
                 if 'RESPONSABLE DIRECTO' in df_fil.columns:
                     df_dep = df_fil['RESPONSABLE DIRECTO'].value_counts().reset_index()
                     df_dep.columns = ['Responsable Directo', 'Colaboradores a Cargo']
-                    # Filtramos filas sin responsable asignado de ser necesario
                     df_dep = df_dep[df_dep['Responsable Directo'] != '-']
-                    
                     if not df_dep.empty:
                         fig_dep = px.bar(df_dep, x='Colaboradores a Cargo', y='Responsable Directo', 
                                          orientation='h', title="Estructura de Dependencia Jerárquica (Líneas de Reporte)",
                                          color_discrete_sequence=['#64748B'])
-                        fig_dep.update_layout(height=320, yaxis={'categoryorder':'total ascending'})
+                        fig_dep.update_layout(height=300, yaxis={'categoryorder':'total ascending'})
                         st.plotly_chart(fig_dep, use_container_width=True)
                         
-                        # Resumen escrito solicitado para la imagen de dependencia
                         lider_max = df_dep.iloc[0]['Responsable Directo']
                         cant_max = df_dep.iloc[0]['Colaboradores a Cargo']
-                        st.info(f"**Resumen Ejecutivo (Estructura):** Visualización de las líneas de reporte y alcance de control. Permite auditar la distribución de la carga de supervisión dentro de la compañía. Actualmente, **{lider_max}** consolida el volumen de reporte más alto con **{cant_max}** colaboradores directos.")
-                else:
-                    st.warning("Columna 'RESPONSABLE DIRECTO' no detectada en la base de datos.")
+                        st.info(f"**Resumen Ejecutivo (Estructura):** Análisis del alcance de control directo por responsable. Actualmente, **{lider_max}** consolida el volumen de reporte más alto con **{cant_max}** colaboradores directos bajo su supervisión jerárquica.")
 
             st.markdown("---")
             st.markdown("### 📋 Distribución Detallada de Personal")
-            # --- FIN DE LA NUEVA SECCIÓN (MANTIENE LO ANTERIOR DESDE AQUÍ) ---
 
             c_izq, c_der = st.columns([1, 4])
             with c_izq:
@@ -145,9 +132,16 @@ try:
                 i1, i2, i3, i4 = st.columns(4)
                 for ui, c, t in zip([i1, i2, i3, i4], ['GÉNERO', 'CATEGORÍA', tipo_col, 'CENTRO DE COSTOS'], ['Género', 'Categoría', 'Contratación', 'C. Costos']):
                     if c in df_fil.columns:
-                        fig = px.pie(df_fil[c].value_counts().reset_index(), names=c, values='count', hole=0.6, color_discrete_sequence=PALETA_AZUL_GRIS)
+                        counts = df_fil[c].value_counts()
+                        fig = px.pie(counts.reset_index(), names=c, values='count', hole=0.6, color_discrete_sequence=PALETA_AZUL_GRIS)
                         fig.update_layout(height=220, margin=dict(t=30, b=0, l=0, r=0), showlegend=False, title={'text': t, 'x': 0.5})
                         ui.plotly_chart(fig, use_container_width=True)
+                        
+                # Resumen analítico consolidado para los gráficos de torta de la distribución detallada
+                if not df_fil.empty:
+                    gen_pred = df_fil['GÉNERO'].value_counts().index[0] if 'GÉNERO' in df_fil.columns and not df_fil['GÉNERO'].empty else "N/A"
+                    cat_pred = df_fil['CATEGORÍA'].value_counts().index[0] if 'CATEGORÍA' in df_fil.columns and not df_fil['CATEGORÍA'].empty else "N/A"
+                    st.info(f"**Análisis de Distribución Interna:** Los indicadores de estructura muestran que el género predominante es **{gen_pred}** y la categoría con mayor densidad de colaboradores es **{cat_pred}**. Esta segmentación permite evaluar el balance de la fuerza laboral y la asignación de costos operativos por centro de costos.")
 
     # --- TAB 2: CUMPLEAÑOS Y ANIVERSARIOS ---
     with tab2:
@@ -201,6 +195,11 @@ try:
                 st.plotly_chart(fig_turn, use_container_width=True)
             with c2:
                 st.plotly_chart(px.bar(df_rot, x='MES', y=['ALTAS', 'BAJAS'], barmode='group', title="Movimientos"), use_container_width=True)
+            
+            # Resumen analítico dinámico de rotación
+            ult_mes = df_rot['MES'].iloc[-1] if 'MES' in df_rot.columns else "el período"
+            ult_rot = df_rot['ROT_VAL'].iloc[-1] if 'ROT_VAL' in df_rot.columns else 0
+            st.info(f"**Interpretación de Rotación:** El índice de rotación de personal (*Turnover*) registra su última medición en **{ult_mes}** reflejando un **{ult_rot:.1f}%**. El análisis cruzado del gráfico de movimientos permite identificar si las variaciones responden a un incremento estacional de bajas o a un fortalecimiento de las altas por ingresos planeados.")
 
     # --- TAB 4: DETALLE DE BAJAS ---
     with tab4:
@@ -221,10 +220,18 @@ try:
                 st.plotly_chart(px.bar(b_mes, x='MES_NOMBRE', y='CANTIDAD', title="Cantidad de Bajas Mensuales", text='CANTIDAD', color_discrete_sequence=['#EF4444']), use_container_width=True)
 
             b1, b2 = st.columns(2)
-            with b1: st.plotly_chart(px.pie(df_e, names='MOTIVO', title="Causas de Salida", hole=0.4), use_container_width=True)
+            with b1: 
+                fig_motivo = px.pie(df_e, names='MOTIVO', title="Causas de Salida", hole=0.4)
+                st.plotly_chart(fig_motivo, use_container_width=True)
             with b2:
                 col_t = [c for c in df_e.columns if 'TIPO DE BAJA' in c][0]
-                st.plotly_chart(px.pie(df_e, names=col_t, title="Tipo de Egreso", hole=0.4), use_container_width=True)
+                fig_tipo_b = px.pie(df_e, names=col_t, title="Tipo de Egreso", hole=0.4)
+                st.plotly_chart(fig_tipo_b, use_container_width=True)
+            
+            # Resumen analítico dinámico de causas y tipos de egresos
+            motivo_pred = df_e['MOTIVO'].value_counts().index[0] if 'MOTIVO' in df_e.columns and not df_e['MOTIVO'].empty else "N/A"
+            tipo_pred = df_e[col_t].value_counts().index[0] if not df_e[col_t].empty else "N/A"
+            st.info(f"**Análisis Crítico de Egresos:** La principal causa registrada de salida corresponde a **{motivo_pred}**, mientras que la modalidad de egreso mayoritaria se clasifica como **{tipo_pred}**. Monitorear estas variables de forma integrada resulta crucial para activar acciones correctivas en los procesos de selección, el clima interno o la estructura de compensaciones.")
 
 except Exception as e:
     st.error(f"Error crítico: {e}")
