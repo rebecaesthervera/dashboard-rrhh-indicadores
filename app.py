@@ -98,23 +98,29 @@ try:
                         df_edad_valida['RANGO_EDAD'] = pd.cut(df_edad_valida['EDAD'], bins=bins, labels=labels, right=False)
                         promedio_edad = df_edad_valida['EDAD'].mean()
                         
-                        # Cálculo automático de Densidad de Personal Adulto/Senior (> 45 años)
+                        # Cálculo de Personal Adulto/Senior (> 45 años)
                         adultos_mayores = df_edad_valida[df_edad_valida['EDAD'] >= 46]
                         cant_adultos = len(adultos_mayores)
                         porc_adultos = (cant_adultos / len(df_edad_valida)) * 100
                         
-                        fig_edad = px.histogram(df_edad_valida, x='RANGO_EDAD', 
-                                                title=f"Distribución de la Nómina por Rangos de Edad (Promedio: {promedio_edad:.1f} años)",
+                        # NUEVO: Identificar qué área tiene más gente adulta o mayor promedio
+                        area_senior = "N/A"
+                        if 'ÁREA' in adultos_mayores.columns and not adultos_mayores.empty:
+                            area_senior = adultos_mayores['ÁREA'].value_counts().index[0]
+                        
+                        # Gráfico Cruzado de Edades por Área (Apilado / Stacked)
+                        fig_edad = px.histogram(df_edad_valida, x='RANGO_EDAD', color='ÁREA' if 'ÁREA' in df_edad_valida.columns else None,
+                                                title=f"Distribución de Rangos de Edad Abiertos por Área (Promedio: {promedio_edad:.1f} años)",
                                                 category_orders={'RANGO_EDAD': labels},
-                                                color_discrete_sequence=['#1E3A8A'])
-                        fig_edad.update_layout(xaxis_title="Rango de Edad", yaxis_title="Cantidad de Colaboradores", height=300)
+                                                color_discrete_sequence=PALETA_AZUL_GRIS)
+                        fig_edad.update_layout(xaxis_title="Rango de Edad", yaxis_title="Cantidad de Colaboradores", height=300, legend_title_text="Áreas")
                         st.plotly_chart(fig_edad, use_container_width=True)
                         
                         st.info(
-                            f"**Resumen Ejecutivo (Edad):** La dotación activa presenta una edad promedio de **{promedio_edad:.1f} años**. "
-                            f"Es estratégico notar que el **{porc_adultos:.1f}%** de la nómina (**{cant_adultos} colaboradores**) se concentra en los rangos "
-                            f"de **46 años o más**, representando el bloque de mayor experiencia acumulada de la empresa. Este indicador permite anticipar "
-                            f"políticas de salud institucional, ergonomía y planes estructurados de transferencia de conocimiento."
+                            f"**Resumen Ejecutivo (Edad y Áreas):** La dotación activa presenta una edad promedio de **{promedio_edad:.1f} años**. "
+                            f"El **{porc_adultos:.1f}%** de la nómina (**{cant_adultos} colaboradores**) se concentra en las franjas de **46 años o más**, "
+                            f"detectándose que el área de **{area_senior}** es la que presenta mayor densidad de este perfil experto. Este cruce visual "
+                            f"permite identificar qué sectores específicos demandarán planes de relevo generacional a mediano plazo."
                         )
             
             with c_dem2:
@@ -136,9 +142,16 @@ try:
             st.markdown("---")
             st.markdown("### 📋 Distribución Detallada de Personal")
 
-            c_izq, c_der = st.columns([1, 4])
+            c_izq, c_der = st.columns([1.5, 3.5])
             with c_izq:
-                st.dataframe(df_fil[['APELLIDO Y NOMBRE']], hide_index=True, height=450, use_container_width=True)
+                # NUEVO: Reemplazo de la nómina de nombres por Resumen de Cantidad por Área
+                st.markdown("<p style='font-weight: bold; margin-bottom: 5px; color: #1E3A8A;'>Cantidad de Personas por Área</p>", unsafe_allow_html=True)
+                if 'ÁREA' in df_fil.columns:
+                    df_areas_cant = df_fil['ÁREA'].value_counts().reset_index()
+                    df_areas_cant.columns = ['ÁREA', 'CANTIDAD']
+                    st.dataframe(df_areas_cant, hide_index=True, height=350, use_container_width=True)
+                else:
+                    st.info("Columna ÁREA no encontrada")
             with c_der:
                 i1, i2, i3, i4 = st.columns(4)
                 for ui, c, t in zip([i1, i2, i3, i4], ['GÉNERO', 'CATEGORÍA', tipo_col, 'CENTRO DE COSTOS'], ['Género', 'Categoría', 'Contratación', 'C. Costos']):
@@ -206,7 +219,6 @@ try:
             with c2:
                 st.plotly_chart(px.bar(df_rot, x='MES', y=['ALTAS', 'BAJAS'], barmode='group', title="Movimientos"), use_container_width=True)
             
-            # Corrección del cálculo dinámico contra el nan%
             df_rot_valida = df_rot.dropna(subset=['ROT_VAL'])
             if not df_rot_valida.empty:
                 ult_fila = df_rot_valida.iloc[-1]
@@ -251,7 +263,7 @@ try:
             
             motivo_pred = df_e['MOTIVO'].value_counts().index[0] if 'MOTIVO' in df_e.columns and not df_e['MOTIVO'].empty else "N/A"
             tipo_pred = df_e[col_t].value_counts().index[0] if not df_e[col_t].empty else "N/A"
-            st.info(f"**Análisis Crítico de Egresos:** La principal causa registrada de salida corresponde a **{motivo_pred}**, mientras que la modalidad de egreso mayoritaria se clasifica como **{tipo_pred}**. Monitorear estas variables de forma integrada resulta crucial para activar acciones correctivas en los procesos de selección, el clima interno o la estructura de compensaciones.")
+            st.info(f"**Análisis Crítico de Egresos:** La principal causa registrada de salida corresponds a **{motivo_pred}**, mientras que la modalidad de egreso mayoritaria se clasifica como **{tipo_pred}**. Monitorear estas variables de forma integrada resulta crucial para activar acciones correctivas en los procesos de selección, el clima interno o la estructura de compensaciones.")
 
 except Exception as e:
     st.error(f"Error crítico: {e}")
