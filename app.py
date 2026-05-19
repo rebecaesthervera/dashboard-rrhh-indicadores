@@ -161,31 +161,71 @@ try:
                     cat_pred = df_fil['CATEGORÍA'].value_counts().index[0] if 'CATEGORÍA' in df_fil.columns and not df_fil['CATEGORÍA'].empty else "N/A"
                     st.info(f"**Análisis de Distribución Interna:** Los indicadores de estructura muestran que el género predominante es **{gen_pred}** y la categoría con mayor densidad de colaboradores es **{cat_pred}**.")
 
-    # --- TAB 2: ROTACIÓN MENSUAL ---
+   # --- TAB 2: ROTACIÓN MENSUAL (REDISEÑADA) ---
     with tab2:
-        st.header("📉 Rotación Mensual")
+        st.header("📉 Análisis de Rotación y Movimientos")
         if not df_rot.empty:
+            # Limpieza segura de datos numéricos
             df_rot['ROT_VAL'] = pd.to_numeric(df_rot['ROTACIÓN'].astype(str).str.replace('%', '').str.replace(',', '.'), errors='coerce')
+            df_rot['ALTAS'] = pd.to_numeric(df_rot['ALTAS'], errors='coerce').fillna(0)
+            df_rot['BAJAS'] = pd.to_numeric(df_rot['BAJAS'], errors='coerce').fillna(0)
             
-            c1, c2 = st.columns(2)
-            with c1:
-                fig_turn = px.line(df_rot, x='MES', y='ROT_VAL', title="% Turnover", markers=True)
-                fig_turn.update_yaxes(ticksuffix="%")
-                st.plotly_chart(fig_turn, use_container_width=True)
-            with c2:
-                st.plotly_chart(px.bar(df_rot, x='MES', y=['ALTAS', 'BAJAS'], barmode='group', title="Movimientos"), use_container_width=True)
+            # --- TRUCO DE MAGIA: Filtramos para mostrar SOLO meses con actividad real ---
+            # Esto elimina los meses futuros vacíos y expande el gráfico con lo que sí importa
+            df_rot_activa = df_rot[(df_rot['ROT_VAL'] > 0) | (df_rot['ALTAS'] > 0) | (df_rot['BAJAS'] > 0) | (df_rot['ROT_VAL'] == 0)].copy()
             
+            # Si se colaron meses futuros en cero por la condición, nos quedamos con los que tienen datos reales
             df_rot_valida = df_rot.dropna(subset=['ROT_VAL'])
             if not df_rot_valida.empty:
+                # Buscamos el último mes real con datos
                 ult_fila = df_rot_valida.iloc[-1]
                 ult_mes = ult_fila['MES']
                 ult_rot = ult_fila['ROT_VAL']
                 texto_rotacion = f"registra su última medición disponible en **{ult_mes}** reflejando un **{ult_rot:.1f}%**."
+                
+                # Recortamos el dataframe hasta ese último mes real para que los gráficos queden impecables
+                idx_ultimo = df_rot_valida.index[-1]
+                df_rot_activa = df_rot.loc[:idx_ultimo].copy()
             else:
                 texto_rotacion = "no registra porcentajes numéricos procesables."
-                
-            st.info(f"**Interpretación de Rotación:** El índice de rotación de personal (*Turnover*) {texto_rotacion}")
+                ult_rot = 0
+                ult_mes = "N/A"
 
+            # 1. TARJETAS DE MÉTRICAS OPERATIVAS (Para darle impacto gerencial arriba)
+            m1, m2, m3 = st.columns(3)
+            with m1:
+                st.metric(label=f"Turnover Último Mes ({ult_mes})", value=f"{ult_rot:.1f}%")
+            with m2:
+                total_altas = int(df_rot_activa['ALTAS'].sum())
+                st.metric(label="Total Altas Acumuladas", value=f"{total_altas} Pers.")
+            with m3:
+                total_bajas = int(df_rot_activa['BAJAS'].sum())
+                st.metric(label="Total Bajas Acumuladas", value=f"{total_bajas} Pers.")
+            
+            st.markdown("---")
+
+            # 2. GRÁFICOS OPTIMIZADOS Y AMPLIADOS
+            c1, c2 = st.columns(2)
+            with c1:
+                fig_turn = px.line(df_rot_activa, x='MES', y='ROT_VAL', title="Evolución Mensual del % Turnover", markers=True,
+                                   color_discrete_sequence=['#1E3A8A'])
+                fig_turn.update_yaxes(ticksuffix="%")
+                fig_turn.update_layout(height=280, margin=dict(t=40, b=10, l=10, r=10))
+                st.plotly_chart(fig_turn, use_container_width=True)
+                
+            with c2:
+                # Usamos los colores azul y gris de Exincor para las barras
+                fig_mov = px.bar(df_rot_activa, x='MES', y=['ALTAS', 'BAJAS'], barmode='group', title="Balance de Movimientos de Personal",
+                                 color_discrete_sequence=['#1E3A8A', '#64748B'])
+                fig_mov.update_layout(height=280, margin=dict(t=40, b=10, l=10, r=10), legend_title_text="Movimiento")
+                st.plotly_chart(fig_mov, use_container_width=True)
+            
+            # 3. TEXTO ANALÍTICO DE CIERRE
+            st.info(
+                f"**Interpretación de Rotación:** El índice de rotación de personal (*Turnover*) {texto_rotacion} "
+                f"Al ocultar las proyecciones vacías del año, se evidencia con claridad el comportamiento real del primer cuatrimestre. "
+                f"El análisis cruzado permite identificar si el comportamiento del indicador responde a un incremento estacional de bajas o a ingresos planificados."
+            )
     # --- TAB 3: DETALLE DE BAJAS ---
     with tab3:
         st.header("❌ Detalle y Registro de Egresos")
