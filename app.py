@@ -64,7 +64,7 @@ try:
     # Mantenemos el orden estratégico solicitado (Cumpleaños al final)
     tab1, tab2, tab3, tab4 = st.tabs(["📊 Panel de Dotación", "📉 Rotación Mensual", "❌ Detalle de Bajas", "🎂 Cumpleaños y Aniversarios"])
 
-    # --- TAB 1: PANEL DE DOTACIÓN ---
+   # --- TAB 1: PANEL DE DOTACIÓN (Eje Y Corregido) ---
     with tab1:
         if not df_main.empty:
             col_f1, col_f2, col_f3, col_f4, col_f5 = st.columns(5)
@@ -112,7 +112,7 @@ try:
                                                 title=f"Distribución de Rangos de Edad Abiertos por Área (Promedio: {promedio_edad:.1f} años)",
                                                 category_orders={'RANGO_EDAD': labels},
                                                 color_discrete_sequence=PALETA_AZUL_GRIS)
-                        fig_edad.update_layout(xaxis_title="Rango de Edad", yaxis_title="Cantidad de Colaboradores", height=300, legend_title_text="Áreas")
+                        fig_edad.update_layout(xaxis_title="Rango de Edad", yaxis_title="Cantidad de Colaboradores", height=350, legend_title_text="Áreas")
                         st.plotly_chart(fig_edad, use_container_width=True)
                         
                         st.info(
@@ -130,7 +130,11 @@ try:
                         fig_dep = px.bar(df_dep, x='Colaboradores a Cargo', y='Responsable Directo', 
                                          orientation='h', title="Estructura de Dependencia Jerárquica (Líneas de Reporte)",
                                          color_discrete_sequence=['#64748B'])
-                        fig_dep.update_layout(height=300, yaxis={'categoryorder':'total ascending'})
+                        
+                        # TRUCO AQUÍ: Ajustamos el alto del gráfico y forzamos a que muestre el 100% de las etiquetas del eje Y
+                        fig_dep.update_layout(height=350, yaxis={'categoryorder':'total ascending'})
+                        fig_dep.update_yaxes(type='category', dtick=1)
+                        
                         st.plotly_chart(fig_dep, use_container_width=True)
                         
                         lider_max = df_dep.iloc[0]['Responsable Directo']
@@ -160,7 +164,6 @@ try:
                     gen_pred = df_fil['GÉNERO'].value_counts().index[0] if 'GÉNERO' in df_fil.columns and not df_fil['GÉNERO'].empty else "N/A"
                     cat_pred = df_fil['CATEGORÍA'].value_counts().index[0] if 'CATEGORÍA' in df_fil.columns and not df_fil['CATEGORÍA'].empty else "N/A"
                     st.info(f"**Análisis de Distribución Interna:** Los indicadores de estructura muestran que el género predominante es **{gen_pred}** y la categoría con mayor densidad de colaboradores es **{cat_pred}**.")
-
    # --- TAB 2: ROTACIÓN MENSUAL (REDISEÑADA) ---
     with tab2:
         st.header("📉 Análisis de Rotación y Movimientos")
