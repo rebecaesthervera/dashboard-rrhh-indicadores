@@ -9,6 +9,7 @@ st.set_page_config(page_title="Gestión RRHH Exincor", layout="wide")
 
 # 2. COLORES Y TRADUCCIONES
 PALETA_AZUL_GRIS = ['#1E3A8A', '#64748B', '#3B82F6', '#94A3B8', '#1D4ED8', '#CBD5E1', '#0F172A']
+COLOR_BAJAS_SUAVE = '#64748B'  # Color sofisticado y menos agresivo que el rojo para las desvinculaciones
 MESES_ES = {
     'January': 'Enero', 'February': 'Febrero', 'March': 'Marzo', 'April': 'Abril',
     'May': 'Mayo', 'June': 'Junio', 'July': 'Julio', 'August': 'Agosto',
@@ -59,7 +60,9 @@ try:
         st.markdown("<h1 style='color: #1E3A8A; margin-top: 10px;'>Gestión de RRHH Exincor</h1>", unsafe_allow_html=True)
     
     st.markdown("---")
-    tab1, tab2, tab3, tab4 = st.tabs(["📊 Panel de Dotación", "🎂 Cumpleaños", "📉 Rotación Mensual", "❌ Detalle de Bajas"])
+    
+    # NUEVO ORDEN DE PESTAÑAS: Cumpleaños pasa al final
+    tab1, tab2, tab3, tab4 = st.tabs(["📊 Panel de Dotación", "📉 Rotación Mensual", "❌ Detalle de Bajas", "🎂 Cumpleaños y Aniversarios"])
 
     # --- TAB 1: PANEL DE DOTACIÓN ---
     with tab1:
@@ -84,7 +87,6 @@ try:
 
             st.metric("Total Activos", len(df_fil))
             
-            # --- SECCIÓN: INDICADORES DEMOGRÁFICOS Y ESTRUCTURA ---
             st.markdown("### 📈 Indicadores Demográficos y Estructura Organizacional")
             c_dem1, c_dem2 = st.columns(2)
             
@@ -98,17 +100,14 @@ try:
                         df_edad_valida['RANGO_EDAD'] = pd.cut(df_edad_valida['EDAD'], bins=bins, labels=labels, right=False)
                         promedio_edad = df_edad_valida['EDAD'].mean()
                         
-                        # Cálculo de Personal Adulto/Senior (> 45 años)
                         adultos_mayores = df_edad_valida[df_edad_valida['EDAD'] >= 46]
                         cant_adultos = len(adultos_mayores)
                         porc_adultos = (cant_adultos / len(df_edad_valida)) * 100
                         
-                        # NUEVO: Identificar qué área tiene más gente adulta o mayor promedio
                         area_senior = "N/A"
                         if 'ÁREA' in adultos_mayores.columns and not adultos_mayores.empty:
                             area_senior = adultos_mayores['ÁREA'].value_counts().index[0]
                         
-                        # Gráfico Cruzado de Edades por Área (Apilado / Stacked)
                         fig_edad = px.histogram(df_edad_valida, x='RANGO_EDAD', color='ÁREA' if 'ÁREA' in df_edad_valida.columns else None,
                                                 title=f"Distribución de Rangos de Edad Abiertos por Área (Promedio: {promedio_edad:.1f} años)",
                                                 category_orders={'RANGO_EDAD': labels},
@@ -117,10 +116,9 @@ try:
                         st.plotly_chart(fig_edad, use_container_width=True)
                         
                         st.info(
-                            f"**Resumen Ejecutivo (Edad y Áreas):** La dotación activa presenta una edad promedio de **{promedio_edad:.1f} años**. "
+                            f"**Resumen Ejecutivo (Edad):** La dotación activa presenta una edad promedio de **{promedio_edad:.1f} años**. "
                             f"El **{porc_adultos:.1f}%** de la nómina (**{cant_adultos} colaboradores**) se concentra en las franjas de **46 años o más**, "
-                            f"detectándose que el área de **{area_senior}** es la que presenta mayor densidad de este perfil experto. Este cruce visual "
-                            f"permite identificar qué sectores específicos demandarán planes de relevo generacional a mediano plazo."
+                            f"detectándose que el área de **{area_senior}** es la que presenta mayor densidad de este perfil experto."
                         )
             
             with c_dem2:
@@ -144,14 +142,11 @@ try:
 
             c_izq, c_der = st.columns([1.5, 3.5])
             with c_izq:
-                # NUEVO: Reemplazo de la nómina de nombres por Resumen de Cantidad por Área
                 st.markdown("<p style='font-weight: bold; margin-bottom: 5px; color: #1E3A8A;'>Cantidad de Personas por Área</p>", unsafe_allow_html=True)
                 if 'ÁREA' in df_fil.columns:
                     df_areas_cant = df_fil['ÁREA'].value_counts().reset_index()
                     df_areas_cant.columns = ['ÁREA', 'CANTIDAD']
                     st.dataframe(df_areas_cant, hide_index=True, height=350, use_container_width=True)
-                else:
-                    st.info("Columna ÁREA no encontrada")
             with c_der:
                 i1, i2, i3, i4 = st.columns(4)
                 for ui, c, t in zip([i1, i2, i3, i4], ['GÉNERO', 'CATEGORÍA', tipo_col, 'CENTRO DE COSTOS'], ['Género', 'Categoría', 'Contratación', 'C. Costos']):
@@ -164,10 +159,91 @@ try:
                 if not df_fil.empty:
                     gen_pred = df_fil['GÉNERO'].value_counts().index[0] if 'GÉNERO' in df_fil.columns and not df_fil['GÉNERO'].empty else "N/A"
                     cat_pred = df_fil['CATEGORÍA'].value_counts().index[0] if 'CATEGORÍA' in df_fil.columns and not df_fil['CATEGORÍA'].empty else "N/A"
-                    st.info(f"**Análisis de Distribución Interna:** Los indicadores de estructura muestran que el género predominante es **{gen_pred}** y la categoría con mayor densidad de colaboradores es **{cat_pred}**. Esta segmentación permite evaluar el balance de la fuerza laboral y la asignación de costos operativos por centro de costos.")
+                    st.info(f"**Análisis de Distribución Interna:** Los indicadores de estructura muestran que el género predominante es **{gen_pred}** y la categoría con mayor densidad de colaboradores es **{cat_pred}**.")
 
-    # --- TAB 2: CUMPLEAÑOS Y ANIVERSARIOS ---
+    # --- TAB 2: ROTACIÓN MENSUAL ---
     with tab2:
+        st.header("📉 Rotación Mensual")
+        if not df_rot.empty:
+            df_rot['ROT_VAL'] = pd.to_numeric(df_rot['ROTACIÓN'].astype(str).str.replace('%', '').str.replace(',', '.'), errors='coerce')
+            
+            c1, c2 = st.columns(2)
+            with c1:
+                fig_turn = px.line(df_rot, x='MES', y='ROT_VAL', title="% Turnover", markers=True)
+                fig_turn.update_yaxes(ticksuffix="%")
+                st.plotly_chart(fig_turn, use_container_width=True)
+            with c2:
+                st.plotly_chart(px.bar(df_rot, x='MES', y=['ALTAS', 'BAJAS'], barmode='group', title="Movimientos"), use_container_width=True)
+            
+            df_rot_valida = df_rot.dropna(subset=['ROT_VAL'])
+            if not df_rot_valida.empty:
+                ult_fila = df_rot_valida.iloc[-1]
+                ult_mes = ult_fila['MES']
+                ult_rot = ult_fila['ROT_VAL']
+                texto_rotacion = f"registra su última medición disponible en **{ult_mes}** reflejando un **{ult_rot:.1f}%**."
+            else:
+                texto_rotacion = "no registra porcentajes numéricos procesables."
+                
+            st.info(f"**Interpretación de Rotación:** El índice de rotación de personal (*Turnover*) {texto_rotacion}")
+
+    # --- TAB 3: DETALLE DE BAJAS (REDISEÑADA COMPLETAMENTE) ---
+    with tab3:
+        st.header("❌ Detalle y Registro de Egresos")
+        if not df_baj.empty:
+            df_e = df_baj[df_baj['ANTIGUEDAD'].astype(str).str.contains('años|meses|días', case=False, na=False)].copy()
+            df_e['FECHA_BAJA_DT'] = limpiar_fecha(df_e, 'FECHA DE BAJA')
+            df_e['MES_NOMBRE'] = df_e['FECHA_BAJA_DT'].dt.strftime('%B').map(MESES_ES)
+            df_e['MES_NUM'] = df_e['FECHA_BAJA_DT'].dt.month
+            
+            # Filtro dinámico cruzado por área si se seleccionó en el panel principal
+            if 'sel_area' in locals() and sel_area != "Todas":
+                if 'ÁREA' in df_e.columns:
+                    df_e = df_e[df_e['ÁREA'] == sel_area]
+
+            b_mes = df_e.groupby(['MES_NUM', 'MES_NOMBRE']).size().reset_index(name='CANTIDAD').sort_values('MES_NUM')
+            col_t = [c for c in df_e.columns if 'TIPO DE BAJA' in c][0]
+
+            # Fila Superior: Gráficos estilizados, más chicos y con colores corporativos suaves
+            g1, g2, g3 = st.columns([1.5, 1.25, 1.25])
+            
+            with g1:
+                # Barras mensuales más bajas y en color sobrio grisáceo
+                fig_bar_bajas = px.bar(b_mes, x='MES_NOMBRE', y='CANTIDAD', title="Bajas por Mes", text='CANTIDAD', color_discrete_sequence=[COLOR_BAJAS_SUAVE])
+                fig_bar_bajas.update_layout(height=180, margin=dict(t=30, b=10, l=10, r=10), yaxes_visible=False)
+                st.plotly_chart(fig_bar_bajas, use_container_width=True)
+                
+            with g2:
+                fig_motivo = px.pie(df_e, names='MOTIVO', title="Causas de Salida", hole=0.5, color_discrete_sequence=PALETA_AZUL_GRIS)
+                fig_motivo.update_layout(height=180, margin=dict(t=30, b=10, l=10, r=10), showlegend=False)
+                st.plotly_chart(fig_motivo, use_container_width=True)
+                
+            with g3:
+                fig_tipo_b = px.pie(df_e, names=col_t, title="Tipo de Egreso", hole=0.5, color_discrete_sequence=PALETA_AZUL_GRIS)
+                fig_tipo_b.update_layout(height=180, margin=dict(t=30, b=10, l=10, r=10), showlegend=False)
+                st.plotly_chart(fig_tipo_b, use_container_width=True)
+
+            st.markdown("---")
+            
+            # Fila Inferior: Incorporación de la Nómina Detallada de Bajas solicitada
+            st.markdown("<p style='font-weight: bold; font-size: 16px; color: #1E3A8A;'>📋 Registro Nominal de Personal Desvinculado</p>", unsafe_allow_html=True)
+            
+            columnas_mostrar = ['APELLIDO Y NOMBRE', 'ÁREA', 'FECHA DE BAJA', 'MOTIVO', col_t]
+            # Nos aseguramos de mostrar solo columnas existentes para evitar errores
+            cols_reales = [c for c in columnas_mostrar if c in df_e.columns]
+            
+            if not df_e.empty:
+                df_tabla_bajas = df_e[cols_reales].sort_values(by=cols_reales[2] if len(cols_reales)>2 else cols_reales[0], ascending=False)
+                st.dataframe(df_tabla_bajas, hide_index=True, use_container_width=True, height=250)
+            else:
+                st.info("No se registran bajas para los criterios seleccionados.")
+            
+            # Resumen interpretativo
+            motivo_pred = df_e['MOTIVO'].value_counts().index[0] if 'MOTIVO' in df_e.columns and not df_e['MOTIVO'].empty else "N/A"
+            tipo_pred = df_e[col_t].value_counts().index[0] if not df_e[col_t].empty else "N/A"
+            st.info(f"**Análisis Crítico de Egresos:** La principal causa registrada de salida corresponde a **{motivo_pred}**, clasificada mayoritariamente como **{tipo_pred}**.")
+
+    # --- TAB 4: CUMPLEAMOS Y ANIVERSARIOS (MOVIDA AL FINAL) ---
+    with tab4:
         meses_lista = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"]
         sel_mes = st.selectbox("Mes de consulta", meses_lista, index=hoy.month-1)
         num_mes = meses_lista.index(sel_mes) + 1
@@ -204,66 +280,6 @@ try:
                                 st.markdown(f"**{r['APELLIDO Y NOMBRE']}**")
                                 st.caption(f"Ingreso: {r['DT_ING'].strftime('%d/%m/%Y')}")
             else: st.info(f"No hay aniversarios en {sel_mes}")
-
-    # --- TAB 3: ROTACIÓN MENSUAL ---
-    with tab3:
-        st.header("📉 Rotación Mensual")
-        if not df_rot.empty:
-            df_rot['ROT_VAL'] = pd.to_numeric(df_rot['ROTACIÓN'].astype(str).str.replace('%', '').str.replace(',', '.'), errors='coerce')
-            
-            c1, c2 = st.columns(2)
-            with c1:
-                fig_turn = px.line(df_rot, x='MES', y='ROT_VAL', title="% Turnover", markers=True)
-                fig_turn.update_yaxes(ticksuffix="%")
-                st.plotly_chart(fig_turn, use_container_width=True)
-            with c2:
-                st.plotly_chart(px.bar(df_rot, x='MES', y=['ALTAS', 'BAJAS'], barmode='group', title="Movimientos"), use_container_width=True)
-            
-            df_rot_valida = df_rot.dropna(subset=['ROT_VAL'])
-            if not df_rot_valida.empty:
-                ult_fila = df_rot_valida.iloc[-1]
-                ult_mes = ult_fila['MES']
-                ult_rot = ult_fila['ROT_VAL']
-                texto_rotacion = f"registra su última medición disponible en **{ult_mes}** reflejando un **{ult_rot:.1f}%**."
-            else:
-                texto_rotacion = "no registra porcentajes numéricos procesables en el último período."
-                
-            st.info(
-                f"**Interpretación de Rotación:** El índice de rotación de personal (*Turnover*) {texto_rotacion} "
-                f"El análisis cruzado del gráfico de movimientos permite identificar si las variaciones responden a un incremento "
-                f"estacional de bajas o a un fortalecimiento de las altas por ingresos planeados."
-            )
-
-    # --- TAB 4: DETALLE DE BAJAS ---
-    with tab4:
-        st.header("❌ Detalle Bajas")
-        if not df_baj.empty:
-            df_e = df_baj[df_baj['ANTIGUEDAD'].astype(str).str.contains('años|meses|días', case=False, na=False)].copy()
-            df_e['FECHA_BAJA_DT'] = limpiar_fecha(df_e, 'FECHA DE BAJA')
-            df_e['MES_NOMBRE'] = df_e['FECHA_BAJA_DT'].dt.strftime('%B').map(MESES_ES)
-            df_e['MES_NUM'] = df_e['FECHA_BAJA_DT'].dt.month
-            
-            b_mes = df_e.groupby(['MES_NUM', 'MES_NOMBRE']).size().reset_index(name='CANTIDAD').sort_values('MES_NUM')
-            
-            ci1, ci2 = st.columns([1, 2])
-            with ci1:
-                st.subheader("Bajas por Mes")
-                st.table(b_mes[['MES_NOMBRE', 'CANTIDAD']])
-            with ci2:
-                st.plotly_chart(px.bar(b_mes, x='MES_NOMBRE', y='CANTIDAD', title="Cantidad de Bajas Mensuales", text='CANTIDAD', color_discrete_sequence=['#EF4444']), use_container_width=True)
-
-            b1, b2 = st.columns(2)
-            with b1: 
-                fig_motivo = px.pie(df_e, names='MOTIVO', title="Causas de Salida", hole=0.4)
-                st.plotly_chart(fig_motivo, use_container_width=True)
-            with b2:
-                col_t = [c for c in df_e.columns if 'TIPO DE BAJA' in c][0]
-                fig_tipo_b = px.pie(df_e, names=col_t, title="Tipo de Egreso", hole=0.4)
-                st.plotly_chart(fig_tipo_b, use_container_width=True)
-            
-            motivo_pred = df_e['MOTIVO'].value_counts().index[0] if 'MOTIVO' in df_e.columns and not df_e['MOTIVO'].empty else "N/A"
-            tipo_pred = df_e[col_t].value_counts().index[0] if not df_e[col_t].empty else "N/A"
-            st.info(f"**Análisis Crítico de Egresos:** La principal causa registrada de salida corresponds a **{motivo_pred}**, mientras que la modalidad de egreso mayoritaria se clasifica como **{tipo_pred}**. Monitorear estas variables de forma integrada resulta crucial para activar acciones correctivas en los procesos de selección, el clima interno o la estructura de compensaciones.")
 
 except Exception as e:
     st.error(f"Error crítico: {e}")
