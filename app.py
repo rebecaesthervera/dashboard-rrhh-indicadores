@@ -83,6 +83,61 @@ try:
             if sel_nombre != "Todos": df_fil = df_fil[df_fil['APELLIDO Y NOMBRE'] == sel_nombre]
 
             st.metric("Total Activos", len(df_fil))
+            
+            # --- NUEVA SECCIÓN: INDICADORES REINCORPORADOS (EDAD Y DEPENDENCIA) ---
+            st.markdown("### 📈 Indicadores Demográficos y Estructura Organizacional")
+            c_dem1, c_dem2 = st.columns(2)
+            
+            with c_dem1:
+                # 1. Indicador de Distribución por Edad
+                if 'EDAD' in df_fil.columns:
+                    df_fil['EDAD'] = pd.to_numeric(df_fil['EDAD'], errors='coerce')
+                    df_edad_valida = df_fil.dropna(subset=['EDAD'])
+                    
+                    if not df_edad_valida.empty:
+                        bins = [0, 25, 35, 45, 55, 100]
+                        labels = ['Hasta 25 años', '26 a 35 años', '36 a 45 años', '46 a 55 años', 'Más de 55 años']
+                        df_edad_valida['RANGO_EDAD'] = pd.cut(df_edad_valida['EDAD'], bins=bins, labels=labels, right=False)
+                        promedio_edad = df_edad_valida['EDAD'].mean()
+                        
+                        fig_edad = px.histogram(df_edad_valida, x='RANGO_EDAD', 
+                                                title=f"Distribución de la Nómina por Rangos de Edad (Promedio: {promedio_edad:.1f} años)",
+                                                category_orders={'RANGO_EDAD': labels},
+                                                color_discrete_sequence=['#1E3A8A'])
+                        fig_edad.update_layout(xaxis_title="Rango de Edad", yaxis_title="Cantidad de Colaboradores", height=320)
+                        st.plotly_chart(fig_edad, use_container_width=True)
+                        
+                        # Resumen escrito solicitado para la imagen de edad
+                        st.info(f"**Resumen Ejecutivo (Edad):** La dotación activa analizada presenta una edad promedio de **{promedio_edad:.1f} años**. Este gráfico detalla la concentración del capital humano por franjas etarias, actuando como insumo clave para planes de sucesión, programas de beneficios segmentados y estrategias de retención del conocimiento.")
+                else:
+                    st.warning("Columna 'EDAD' no detectada en la base de datos.")
+                    
+            with c_dem2:
+                # 2. Indicador de Dependencia ("Quién depende de quién" / Alcance de control)
+                if 'RESPONSABLE DIRECTO' in df_fil.columns:
+                    df_dep = df_fil['RESPONSABLE DIRECTO'].value_counts().reset_index()
+                    df_dep.columns = ['Responsable Directo', 'Colaboradores a Cargo']
+                    # Filtramos filas sin responsable asignado de ser necesario
+                    df_dep = df_dep[df_dep['Responsable Directo'] != '-']
+                    
+                    if not df_dep.empty:
+                        fig_dep = px.bar(df_dep, x='Colaboradores a Cargo', y='Responsable Directo', 
+                                         orientation='h', title="Estructura de Dependencia Jerárquica (Líneas de Reporte)",
+                                         color_discrete_sequence=['#64748B'])
+                        fig_dep.update_layout(height=320, yaxis={'categoryorder':'total ascending'})
+                        st.plotly_chart(fig_dep, use_container_width=True)
+                        
+                        # Resumen escrito solicitado para la imagen de dependencia
+                        lider_max = df_dep.iloc[0]['Responsable Directo']
+                        cant_max = df_dep.iloc[0]['Colaboradores a Cargo']
+                        st.info(f"**Resumen Ejecutivo (Estructura):** Visualización de las líneas de reporte y alcance de control. Permite auditar la distribución de la carga de supervisión dentro de la compañía. Actualmente, **{lider_max}** consolida el volumen de reporte más alto con **{cant_max}** colaboradores directos.")
+                else:
+                    st.warning("Columna 'RESPONSABLE DIRECTO' no detectada en la base de datos.")
+
+            st.markdown("---")
+            st.markdown("### 📋 Distribución Detallada de Personal")
+            # --- FIN DE LA NUEVA SECCIÓN (MANTIENE LO ANTERIOR DESDE AQUÍ) ---
+
             c_izq, c_der = st.columns([1, 4])
             with c_izq:
                 st.dataframe(df_fil[['APELLIDO Y NOMBRE']], hide_index=True, height=450, use_container_width=True)
@@ -137,13 +192,12 @@ try:
     with tab3:
         st.header("📉 Rotación Mensual")
         if not df_rot.empty:
-            # Limpiamos el % de forma segura
             df_rot['ROT_VAL'] = pd.to_numeric(df_rot['ROTACIÓN'].astype(str).str.replace('%', '').str.replace(',', '.'), errors='coerce')
             
             c1, c2 = st.columns(2)
             with c1:
                 fig_turn = px.line(df_rot, x='MES', y='ROT_VAL', title="% Turnover", markers=True)
-                fig_turn.update_yaxes(ticksuffix="%") # Forma correcta de poner el %
+                fig_turn.update_yaxes(ticksuffix="%")
                 st.plotly_chart(fig_turn, use_container_width=True)
             with c2:
                 st.plotly_chart(px.bar(df_rot, x='MES', y=['ALTAS', 'BAJAS'], barmode='group', title="Movimientos"), use_container_width=True)
