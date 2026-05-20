@@ -34,6 +34,16 @@ st.markdown("""
     .card-title { font-size: 18px; font-weight: 700; color: #0f172a; margin-bottom: 4px; }
     .card-subtitle { font-size: 13px; color: #475569; font-weight: 600; text-transform: uppercase; margin-bottom: 10px; }
     .card-badge { display: inline-block; background-color: #e0f2fe; color: #0369a1; padding: 4px 12px; border-radius: 20px; font-weight: 700; font-size: 12px; }
+    
+    /* Diseño estilizado para los contenedores de las métricas superiores */
+    .metric-container {
+        background-color: #ffffff;
+        border: 1px solid #e2e8f0;
+        border-radius: 10px;
+        padding: 15px;
+        box-shadow: 0 2px 6px rgba(0,0,0,0.03);
+        text-align: center;
+    }
     </style>
 """, unsafe_allow_html=True)
 
@@ -115,7 +125,11 @@ try:
             if sel_area != "Todas": df_fil = df_fil[df_fil['ÁREA'] == sel_area]
             if sel_nombre != "Todos": df_fil = df_fil[df_fil['APELLIDO Y NOMBRE'] == sel_nombre]
 
-            st.metric("Total Activos", len(df_fil))
+            # Envolver métrica principal en tarjeta visual
+            st.markdown('<div class="metric-container">', unsafe_allow_html=True)
+            st.metric("Total Personal Activo Filtrado", len(df_fil))
+            st.markdown('</div>', unsafe_allow_html=True)
+            st.br()
             
             st.markdown("### 📈 Indicadores Demográficos y Estructura Organizacional")
             c_dem1, c_dem2 = st.columns(2)
@@ -151,24 +165,26 @@ try:
                             f"detectándose que el área de **{area_senior}** es la que presenta mayor densidad de este perfil experto."
                         )
                         
-                        # --- DETECTOR DE PRÓXIMOS A JUBILARSE ---
+                        # --- ALERTA DETALLADA DE PRÓXIMOS A JUBILARSE ---
                         st.markdown("---")
-                        st.markdown("#### ⏳ Alerta de Colaboradores Próximos a Jubilarse")
+                        st.markdown("#### ⏳ Control de Seguimiento Pre-Jubilatorio (Edad Alerta)")
                         
+                        # Identificación estricta: Mujeres >= 59 y Hombres >= 64
                         if 'GÉNERO' in df_edad_valida.columns:
                             jubilables = df_edad_valida[
                                 ((df_edad_valida['GÉNERO'].astype(str).str.upper() == 'FEMENINO') & (df_edad_valida['EDAD'] >= 59)) |
                                 ((df_edad_valida['GÉNERO'].astype(str).str.upper() == 'MASCULINO') & (df_edad_valida['EDAD'] >= 64))
                             ]
                         else:
+                            # Alerta general preventiva por encima de 60 si falta la columna de género
                             jubilables = df_edad_valida[df_edad_valida['EDAD'] >= 60]
                         
                         if not jubilables.empty:
-                            st.warning(f"⚠️ Se detectaron **{len(jubilables)}** colaboradores en edad de gestionar o próximos a iniciar sus trámites jubilatorios:")
+                            st.warning(f"⚠️ **Atención:** Se identificaron **{len(jubilables)}** colaboradores alcanzando la edad límite o próximos a iniciar gestiones jubilatorias. Se sugiere revisar estados de aportes:")
                             cols_jub = [c for c in ['APELLIDO Y NOMBRE', 'ÁREA', 'EDAD', 'GÉNERO'] if c in jubilables.columns]
                             st.dataframe(jubilables[cols_jub].sort_values('EDAD', ascending=False), hide_index=True, use_container_width=True)
                         else:
-                            st.success("✅ No se registran colaboradores próximos a la edad de jubilación dentro del grupo seleccionado.")
+                            st.success("✅ No se registran colaboradores en rangos de edad críticos para trámite jubilatorio inmediato.")
             
             with c_dem2:
                 if 'RESPONSABLE DIRECTO' in df_fil.columns:
@@ -184,7 +200,7 @@ try:
                         
                         lider_max = df_dep.iloc[0]['Responsable Directo']
                         cant_max = df_dep.iloc[0]['Colaboradores a Cargo']
-                        st.info(f"**Resumen Ejecutivo (Estructura):** Análisis del alcance de control directo por responsable. Currently, **{lider_max}** consolida el volumen de reporte más alto con **{cant_max}** colaboradores directos bajo su supervisión jerárquica.")
+                        st.info(f"**Resumen Ejecutivo (Estructura):** Análisis del alcance de control directo por responsable. Actualmente, **{lider_max}** consolida el volumen de reporte más alto con **{cant_max}** colaboradores directos bajo su supervisión jerárquica.")
 
             st.markdown("---")
             st.markdown("### 📋 Distribución Detallada de Personal")
@@ -210,7 +226,7 @@ try:
                     cat_pred = df_fil['CATEGORÍA'].value_counts().index[0] if 'CATEGORÍA' in df_fil.columns and not df_fil['CATEGORÍA'].empty else "N/A"
                     st.info(f"**Análisis de Distribución Interna:** Los indicadores de estructura muestran que el género predominante es **{gen_pred}** y la categoría con mayor densidad de colaboradores es **{cat_pred}**.")
 
-    # --- TAB 2: ROTACIÓN MENSUAL ---
+    # --- TAB 2: ROTACIÓN MENSUAL (CON TARJETAS MEJORADAS) ---
     with tab2:
         st.header("📉 Análisis de Rotación y Movimientos")
         if not df_rot.empty:
@@ -232,10 +248,20 @@ try:
                 ult_mes = "N/A"
                 df_rot_activa = df_rot.copy()
 
+            # Envolver métricas del panel en tarjetas individuales de fondo blanco
             m1, m2, m3 = st.columns(3)
-            with m1: st.metric(label=f"Turnover Último Mes ({ult_mes})", value=f"{ult_rot:.1f}%")
-            with m2: st.metric(label="Total Altas Acumuladas", value=f"{int(df_rot_activa['ALTAS'].sum())} Pers.")
-            with m3: st.metric(label="Total Bajas Acumuladas", value=f"{int(df_rot_activa['BAJAS'].sum())} Pers.")
+            with m1:
+                st.markdown('<div class="metric-container">', unsafe_allow_html=True)
+                st.metric(label=f"Turnover Último Mes ({ult_mes})", value=f"{ult_rot:.1f}%")
+                st.markdown('</div>', unsafe_allow_html=True)
+            with m2:
+                st.markdown('<div class="metric-container">', unsafe_allow_html=True)
+                st.metric(label="Total Altas Acumuladas", value=f"{int(df_rot_activa['ALTAS'].sum())} Pers.")
+                st.markdown('</div>', unsafe_allow_html=True)
+            with m3:
+                st.markdown('<div class="metric-container">', unsafe_allow_html=True)
+                st.metric(label="Total Bajas Acumuladas", value=f"{int(df_rot_activa['BAJAS'].sum())} Pers.")
+                st.markdown('</div>', unsafe_allow_html=True)
             
             st.markdown("---")
 
