@@ -129,7 +129,9 @@ try:
             st.markdown('<div class="metric-container">', unsafe_allow_html=True)
             st.metric("Total Personal Activo Filtrado", len(df_fil))
             st.markdown('</div>', unsafe_allow_html=True)
-            st.br()
+            
+            # Espaciado seguro con Markdown html limpio
+            st.markdown("<br>", unsafe_allow_html=True)
             
             st.markdown("### 📈 Indicadores Demográficos y Estructura Organizacional")
             c_dem1, c_dem2 = st.columns(2)
@@ -180,7 +182,7 @@ try:
                             jubilables = df_edad_valida[df_edad_valida['EDAD'] >= 60]
                         
                         if not jubilables.empty:
-                            st.warning(f"⚠️ **Atención:** Se identificaron **{len(jubilables)}** colaboradores alcanzando la edad límite o próximos a iniciar gestiones jubilatorias. Se sugiere revisar estados de aportes:")
+                            st.warning(f"⚠️ **Atención:** Se identificaron **{len(jubilables)}** colaboradores alcanzando la edad límite o próximos a iniciar gestiones jubilatorios. Se sugiere revisar estados de aportes:")
                             cols_jub = [c for c in ['APELLIDO Y NOMBRE', 'ÁREA', 'EDAD', 'GÉNERO'] if c in jubilables.columns]
                             st.dataframe(jubilables[cols_jub].sort_values('EDAD', ascending=False), hide_index=True, use_container_width=True)
                         else:
@@ -226,7 +228,7 @@ try:
                     cat_pred = df_fil['CATEGORÍA'].value_counts().index[0] if 'CATEGORÍA' in df_fil.columns and not df_fil['CATEGORÍA'].empty else "N/A"
                     st.info(f"**Análisis de Distribución Interna:** Los indicadores de estructura muestran que el género predominante es **{gen_pred}** y la categoría con mayor densidad de colaboradores es **{cat_pred}**.")
 
-    # --- TAB 2: ROTACIÓN MENSUAL (CON TARJETAS MEJORADAS) ---
+    # --- TAB 2: ROTACIÓN MENSUAL ---
     with tab2:
         st.header("📉 Análisis de Rotación y Movimientos")
         if not df_rot.empty:
