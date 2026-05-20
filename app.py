@@ -130,7 +130,6 @@ try:
             st.metric("Total Personal Activo Filtrado", len(df_fil))
             st.markdown('</div>', unsafe_allow_html=True)
             
-            # Espaciado seguro con Markdown html limpio
             st.markdown("<br>", unsafe_allow_html=True)
             
             st.markdown("### 📈 Indicadores Demográficos y Estructura Organizacional")
@@ -167,24 +166,28 @@ try:
                             f"detectándose que el área de **{area_senior}** es la que presenta mayor densidad de este perfil experto."
                         )
                         
-                        # --- ALERTA DETALLADA DE PRÓXIMOS A JUBILARSE ---
+                        # --- CORRECCIÓN CRÍTICA DE ALERTA DE JUBILACIONES ---
                         st.markdown("---")
-                        st.markdown("#### ⏳ Control de Seguimiento Pre-Jubilatorio (Edad Alerta)")
+                        st.markdown("#### ⏳ Control de Seguimiento Pre-Jubilatorio")
                         
-                        # Identificación estricta: Mujeres >= 59 y Hombres >= 64
-                        if 'GÉNERO' in df_edad_valida.columns:
+                        # Buscamos de forma flexible si la columna se llama SEXO o GÉNERO
+                        col_sexo = next((c for c in df_edad_valida.columns if 'SEXO' in c or 'GÉNERO' in c or 'GENERO' in c), None)
+                        
+                        if col_sexo:
+                            # Filtramos buscando la primera letra 'F' o 'M' para que tome 'Femenino', 'F', 'MASCULINO', etc.
                             jubilables = df_edad_valida[
-                                ((df_edad_valida['GÉNERO'].astype(str).str.upper() == 'FEMENINO') & (df_edad_valida['EDAD'] >= 59)) |
-                                ((df_edad_valida['GÉNERO'].astype(str).str.upper() == 'MASCULINO') & (df_edad_valida['EDAD'] >= 64))
+                                ((df_edad_valida[col_sexo].astype(str).str.upper().str.startswith('F')) & (df_edad_valida['EDAD'] >= 59)) |
+                                ((df_edad_valida[col_sexo].astype(str).str.upper().str.startswith('M')) & (df_edad_valida['EDAD'] >= 64))
                             ]
                         else:
-                            # Alerta general preventiva por encima de 60 si falta la columna de género
-                            jubilables = df_edad_valida[df_edad_valida['EDAD'] >= 60]
+                            # Si no encuentra columna de sexo, te muestra a todos los mayores de 59 de forma preventiva
+                            jubilables = df_edad_valida[df_edad_valida['EDAD'] >= 59]
                         
                         if not jubilables.empty:
-                            st.warning(f"⚠️ **Atención:** Se identificaron **{len(jubilables)}** colaboradores alcanzando la edad límite o próximos a iniciar gestiones jubilatorios. Se sugiere revisar estados de aportes:")
-                            cols_jub = [c for c in ['APELLIDO Y NOMBRE', 'ÁREA', 'EDAD', 'GÉNERO'] if c in jubilables.columns]
-                            st.dataframe(jubilables[cols_jub].sort_values('EDAD', ascending=False), hide_index=True, use_container_width=True)
+                            st.warning(f"⚠️ **Atención:** Se identificaron **{len(jubilables)}** colaboradores alcanzando la edad límite o próximos a iniciar gestiones jubilatorias:")
+                            # Mostramos las columnas clave que existan
+                            cols_mostrar_jub = [c for c in ['APELLIDO Y NOMBRE', 'ÁREA', 'EDAD', col_sexo] if c and c in jubilables.columns]
+                            st.dataframe(jubilables[cols_mostrar_jub].sort_values('EDAD', ascending=False), hide_index=True, use_container_width=True)
                         else:
                             st.success("✅ No se registran colaboradores en rangos de edad críticos para trámite jubilatorio inmediato.")
             
@@ -250,7 +253,6 @@ try:
                 ult_mes = "N/A"
                 df_rot_activa = df_rot.copy()
 
-            # Envolver métricas del panel en tarjetas individuales de fondo blanco
             m1, m2, m3 = st.columns(3)
             with m1:
                 st.markdown('<div class="metric-container">', unsafe_allow_html=True)
@@ -334,7 +336,6 @@ try:
         
         meses_lista = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"]
         
-        # Filtro multiselect (Vacío muestra todo el año junto)
         sel_meses = st.multiselect("Filtrar por uno o más meses específicos (Dejar vacío para ver todo el año de corrido)", options=meses_lista)
         
         t_cump, t_ani = st.tabs(["🎂 Cumpleaños", "🎖️ Aniversarios Laborales"])
