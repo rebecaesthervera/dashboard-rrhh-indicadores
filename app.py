@@ -11,11 +11,6 @@ st.set_page_config(
 # --- ESTILOS CSS PERSONALIZADOS (Color y Tarjetas) ---
 st.markdown("""
     <style>
-    /* Estilos generales de la app */
-    .main {
-        background-color: #f8fafc;
-    }
-    
     /* Tarjetas de Aniversario */
     .anniversary-card {
         background-color: #ffffff;
@@ -42,7 +37,6 @@ st.markdown("""
         font-weight: 700;
         color: #0f172a;
         margin-bottom: 4px;
-        font-family: 'Source Sans Pro', sans-serif;
     }
     .card-role {
         font-size: 13px;
@@ -65,14 +59,13 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ==========================================
-# 1. CARGA DE DATOS (Simulada o Real)
+# 1. CARGA DE DATOS (Simulada)
 # ==========================================
-# REEMPLAZÁ ESTE BLOQUE por tu lectura real del Excel si lo tenés en otra variable, por ejemplo:
+# REEMPLAZÁ ESTE BLOQUE por tu lectura real del Excel si ya tenés tu DataFrame, por ejemplo:
 # df_nomina = pd.read_excel("tu_archivo.xlsx")
 
 @st.cache_data
 def cargar_datos_ejemplo():
-    # Datos de prueba basados en tu captura para que veas el diseño de inmediato
     datos = [
         {"Nombre": "Daniel Abalos", "Puesto": "Maquinista Impresora", "Mes": "Mayo", "Antiguedad": 5},
         {"Nombre": "Roman Aban", "Puesto": "Supervisor de Mantenimiento", "Mes": "Junio", "Antiguedad": 3},
@@ -91,20 +84,23 @@ df_nomina = cargar_datos_ejemplo()
 # ==========================================
 st.title("📊 Plataforma de Indicadores de RRHH")
 st.write("Control de dotación, rotación y eventos del personal.")
-st.hr()
 
-# Métricas rápidas arriba (manteniendo la prolijidad de tu primera pantalla)
+# CORRECCIÓN: st.divider() reemplaza al st.hr() que fallaba
+st.divider()
+
+# Métricas rápidas arriba (idénticas a tu primera captura)
 m1, m2, m3, m4 = st.columns(4)
 with m1:
-    st.metric(label="📈 Turnover", value="2.4 %", delta="-0.5 %")
+    st.metric(label="Turnover Último Mes (abril-2026)", value="0.0 %")
 with m2:
-    st.metric(label="✨ Altas Mes", value="4", delta="2")
+    st.metric(label="Total Altas Acumuladas", value="4 Pers.")
 with m3:
-    st.metric(label="📉 Bajas Mes", value="1", delta="-1")
+    st.metric(label="Total Bajas Acumuladas", value="5 Pers.")
 with m4:
-    st.metric(label="👥 Total Dotación", value=str(len(df_nomina)))
+    st.metric(label="👥 Total Dotación", value=f"{len(df_nomina)} Pers.")
 
-st.br()
+# Espaciador seguro sin usar st.br()
+st.markdown("<br>", unsafe_allow_html=True)
 
 
 # ==========================================
@@ -112,40 +108,36 @@ st.br()
 # ==========================================
 st.header("🎉 Próximos Aniversarios Laborales")
 
-# --- TRATAMIENTO SEGURO CONTRA ERRORES ---
-# Limpiamos nulos de la columna 'Mes', pasamos a texto y ordenamos para que no rompa el multiselect
+# Tratamiento seguro de la columna 'Mes' para que no rompa el multiselect
 if 'Mes' in df_nomina.columns:
     meses_limpios = df_nomina['Mes'].dropna().astype(str).unique()
     meses_disponibles = sorted(list(meses_limpios))
 else:
     meses_disponibles = []
 
-# --- FILTRO MULTISELECT (Si está vacío, muestra TODOS) ---
+# Filtro multiselect (Vacío por defecto = Muestra TODOS)
 meses_seleccionados = st.multiselect(
     label="🔍 Filtrar por uno o más meses:",
     options=meses_disponibles,
     placeholder="Mostrando todos los meses de forma automática..."
 )
 
-# Lógica del filtro abierto
+# Lógica de filtro abierto
 if meses_seleccionados:
     df_filtrado = df_nomina[df_nomina['Mes'].isin(meses_seleccionados)]
 else:
-    df_filtrado = df_nomina  # Si no hay selección, recuperamos la vista completa
+    df_filtrado = df_nomina  # Si está vacío, recupera la vista completa con todos
 
 st.write(f"Mostrando **{len(df_filtrado)}** colaboradores en la lista:")
 
 
 # ==========================================
-# 4. RENDERIZADO EN FORMATO TARJETAS (GRID)
+# 4. RENDERIZADO EN FORMATO TARJETAS (GRID DE 3)
 # ==========================================
-# Distribución limpia en 3 columnas
 col1, col2, col3 = st.columns(3)
 
-# Resetear el índice para que el reparto sea correlativo y prolijo
 for idx, fila in df_filtrado.reset_index(drop=True).iterrows():
-    
-    # Repartimos de forma equitativa entre las 3 columnas
+    # Reparto equitativo entre las columnas
     if idx % 3 == 0:
         columna_destino = col1
     elif idx % 3 == 1:
@@ -154,7 +146,6 @@ for idx, fila in df_filtrado.reset_index(drop=True).iterrows():
         columna_destino = col3
         
     with columna_destino:
-        # Armamos la tarjeta con HTML inyectado de forma segura
         st.markdown(f"""
             <div class="anniversary-card">
                 <div class="card-emojis">🎈 ✨</div>
