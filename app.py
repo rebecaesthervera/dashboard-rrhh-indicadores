@@ -7,7 +7,7 @@ import os
 # 1. CONFIGURACIÓN DE PÁGINA
 st.set_page_config(page_title="Gestión RRHH Exincor", layout="wide")
 
-# --- TUNEO DE COLOR DE FONDO Y DISEÑO DE TARJETAS (Pedido 2 y 4) ---
+# --- TUNEO DE COLOR DE FONDO Y DISEÑO DE TARJETAS ---
 st.markdown("""
     <style>
     /* Fondo general de la plataforma más llamativo y moderno */
@@ -39,7 +39,7 @@ st.markdown("""
 
 # 2. COLORES Y TRADUCCIONES
 PALETA_AZUL_GRIS = ['#1E3A8A', '#64748B', '#3B82F6', '#94A3B8', '#1D4ED8', '#CBD5E1', '#0F172A']
-COLOR_BAJAS_SUAVE = '#64748B'  # Tono corporativo sobrio y elegante para el gráfico de barras de bajas
+COLOR_BAJAS_SUAVE = '#64748B'  
 MESES_ES = {
     'January': 'Enero', 'February': 'Febrero', 'March': 'Marzo', 'April': 'Abril',
     'May': 'Mayo', 'June': 'Junio', 'July': 'Julio', 'August': 'Agosto',
@@ -146,28 +146,25 @@ try:
                         st.plotly_chart(fig_edad, use_container_width=True)
                         
                         st.info(
-                            f"**Resumen Ejecutivo (Edad):** La dotación activa presents una edad promedio de **{promedio_edad:.1f} años**. "
+                            f"**Resumen Ejecutivo (Edad):** La dotación activa presenta una edad promedio de **{promedio_edad:.1f} años**. "
                             f"El **{porc_adultos:.1f}%** de la nómina (**{cant_adultos} colaboradores**) se concentra en las franjas de **46 años o más**, "
                             f"detectándose que el área de **{area_senior}** es la que presenta mayor densidad de este perfil experto."
                         )
                         
-                        # --- PEDIDO 1: DETECTOR DE PRÓXIMOS A JUBILARSE ---
+                        # --- DETECTOR DE PRÓXIMOS A JUBILARSE ---
                         st.markdown("---")
-                        st.markdown("#### ⏳ Alerta de Colaboradores Próximos a Jubilarse")
+                        st.markdown("#### ⏳ Alerta de Colaboradores Próximas a Jubilarse")
                         
-                        # Buscamos mujeres >= 59 años y hombres >= 64 años para dar un año de previsión de trámites
                         if 'GÉNERO' in df_edad_valida.columns:
                             jubilables = df_edad_valida[
                                 ((df_edad_valida['GÉNERO'].astype(str).str.upper() == 'FEMENINO') & (df_edad_valida['EDAD'] >= 59)) |
                                 ((df_edad_valida['GÉNERO'].astype(str).str.upper() == 'MASCULINO') & (df_edad_valida['EDAD'] >= 64))
                             ]
                         else:
-                            # Alerta general si no está la columna género informada
                             jubilables = df_edad_valida[df_edad_valida['EDAD'] >= 60]
                         
                         if not jubilables.empty:
                             st.warning(f"⚠️ Se detectaron **{len(jubilables)}** colaboradores en edad de gestionar o próximos a iniciar sus trámites jubilatorios:")
-                            # Columnas clave para mostrar
                             cols_jub = [c for c in ['APELLIDO Y NOMBRE', 'ÁREA', 'EDAD', 'GÉNERO'] if c in jubilables.columns]
                             st.dataframe(jubilables[cols_jub].sort_values('EDAD', ascending=False), hide_index=True, use_container_width=True)
                         else:
@@ -301,100 +298,13 @@ try:
             
             motivo_pred = df_e['MOTIVO'].value_counts().index[0] if 'MOTIVO' in df_e.columns and not df_e['MOTIVO'].empty else "N/A"
             tipo_pred = df_e[col_t].value_counts().index[0] if not df_e[col_t].empty else "N/A"
-            st.info(f"**Análisis Crítico de Egresos:** La principal causa registrada de salida corresponde a **{motivo_pred}**, clasificada mayoritariamente como **{tipo_pred}**.")
+            st.info(f"**Análisis Crítico de Egresos:** La principal causa registrada de salida corresponde a **{motivo_pred}**, classified mayoritariamente como **{tipo_pred}**.")
 
-    # --- TAB 4: CUMPLEAÑOS Y ANIVERSARIOS (PEDIDO 2 Y 3 OPTIMIZADO) ---
+    # --- TAB 4: CUMPLEAÑOS Y ANIVERSARIOS (CORREGIDO 'OPTIONS') ---
     with tab4:
         st.header("🎉 Agenda de Celebraciones de la Nómina")
         
         meses_lista = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"]
         
-        # Filtro multiselect: si se deja vacío, muestra TODOS por defecto de forma masiva
-        sel_meses = st.multiselect("Filtrar por uno o más meses específicos (Dejar vacío para ver todo el año de corrido)", opciones=meses_lista)
-        
-        t_cump, t_ani = st.tabs(["🎂 Cumpleaños", "🎖️ Aniversarios Laborales"])
-        
-        with t_cump:
-            if not df_cump.empty:
-                df_cump['DT_NAC'] = limpiar_fecha(df_cump, 'FECHA NACIMIENTO')
-                df_cump['MES_NOMBRE'] = df_cump['DT_NAC'].dt.month.apply(lambda x: meses_lista[int(x)-1] if pd.notnull(x) else None)
-                df_cump['DIA'] = df_cump['DT_NAC'].dt.day
-                
-                # Aplicar filtro de meses si hay selección, sino traer todos
-                if sel_meses:
-                    df_v = df_cump[df_cump['MES_NOMBRE'].isin(sel_meses)].copy()
-                else:
-                    df_v = df_cump.dropna(subset=['DT_NAC']).copy()
-                
-                if not df_v.empty:
-                    # Ordenar cronológicamente por mes y día
-                    df_v['MES_NUM'] = df_v['DT_NAC'].dt.month
-                    df_v = df_v.sort_values(['MES_NUM', 'DIA'])
-                    
-                    st.write(f"Mostrando **{len(df_v)}** cumpleaños registrados:")
-                    
-                    # Grilla de 3 columnas para tarjetas de cumpleaños (Borde Rojo/Rosa alegre)
-                    col1, col2, col3 = st.columns(3)
-                    for idx, (_, r) in enumerate(df_v.reset_index().iterrows()):
-                        if idx % 3 == 0: target_col = col1
-                        elif idx % 3 == 1: target_col = col2
-                        else: target_col = col3
-                        
-                        with target_col:
-                            st.markdown(f"""
-                                <div class="custom-card" style="border-left-color: #ef4444;">
-                                    <div style="font-size: 22px; margin-bottom: 5px;">🎂 ✨</div>
-                                    <div class="card-title">{r['APELLIDO Y NOMBRE']}</div>
-                                    <div class="card-subtitle">Área: {r['ÁREA'] if 'ÁREA' in r else 'Exincor'}</div>
-                                    <div class="card-badge" style="background-color: #fee2e2; color: #991b1b;">📅 Día {int(r['DIA'])} de {r['MES_NOMBRE']}</div>
-                                </div>
-                            """, unsafe_allow_html=True)
-                else:
-                    st.info("No se registran cumpleaños para los meses seleccionados.")
-            else:
-                st.info("La base de datos de cumpleaños se encuentra vacía.")
-
-        with t_ani:
-            if not df_main.empty:
-                col_f_ing = next((c for c in df_main.columns if 'INGRESO' in c or 'ALTA' in c), 'FECHA INGRESO')
-                df_main['DT_ING'] = limpiar_fecha(df_main, col_f_ing)
-                df_main['MES_NOMBRE'] = df_main['DT_ING'].dt.month.apply(lambda x: meses_lista[int(x)-1] if pd.notnull(x) else None)
-                df_main['DIA'] = df_main['DT_ING'].dt.day
-                
-                # Aplicar filtro abierto u optimizado por meses
-                if sel_meses:
-                    df_ani_fil = df_main[df_main['MES_NOMBRE'].isin(sel_meses)].copy()
-                else:
-                    df_ani_fil = df_main.dropna(subset=['DT_ING']).copy()
-                
-                if not df_ani_fil.empty:
-                    df_ani_fil['MES_NUM'] = df_ani_fil['DT_ING'].dt.month
-                    df_ani_fil = df_ani_fil.sort_values(['MES_NUM', 'DIA'])
-                    
-                    st.write(f"Mostrando **{len(df_ani_fil)}** aniversarios laborales:")
-                    
-                    # Grilla de 3 columnas para tarjetas de aniversarios (Borde Azul Exincor)
-                    col1, col2, col3 = st.columns(3)
-                    for idx, (_, r) in enumerate(df_ani_fil.reset_index().iterrows()):
-                        if idx % 3 == 0: target_col = col1
-                        elif idx % 3 == 1: target_col = col2
-                        else: target_col = col3
-                        
-                        with target_col:
-                            ant = hoy.year - r['DT_ING'].year
-                            puesto_txt = r['PUESTO'] if 'PUESTO' in r else (r['ÁREA'] if 'ÁREA' in r else 'Exincor')
-                            st.markdown(f"""
-                                <div class="custom-card" style="border-left-color: #1E3A8A;">
-                                    <div style="font-size: 22px; margin-bottom: 5px;">🎖️ 🏆</div>
-                                    <div class="card-title">{r['APELLIDO Y NOMBRE']}</div>
-                                    <div class="card-subtitle">Puesto: {puesto_txt}</div>
-                                    <div class="card-badge">🎉 {int(ant)} Años • {int(r['DIA'])} de {r['MES_NOMBRE']}</div>
-                                </div>
-                            """, unsafe_allow_html=True)
-                else:
-                    st.info("No se registran aniversarios laborales para los meses seleccionados.")
-            else:
-                st.info("La base de datos general se encuentra vacía.")
-
-except Exception as e:
-    st.error(f"Error crítico en la plataforma: {e}")
+        # CORRECCIÓN AQUÍ: Cambiado 'opciones' por 'options' para evitar el AttributeError de Streamlit
+        sel_meses = st.multiselect("Filtrar por uno o más meses específicos (Dejar vacío para ver todo el año de corrido)", options=meses_lista)
