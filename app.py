@@ -1,17 +1,16 @@
 import streamlit as st
 import pandas as pd
 
-# --- CONFIGURACIÓN DE LA PÁGINA ---
+# --- 1. CONFIGURACIÓN DE LA PÁGINA (Debe ser lo primero) ---
 st.set_page_config(
     page_title="Plataforma de Indicadores - RRHH",
     page_icon="📊",
     layout="wide"
 )
 
-# --- ESTILOS CSS PERSONALIZADOS (Color y Tarjetas) ---
+# --- 2. ESTILOS CSS PARA LAS TARJETAS DE ANIVERSARIO ---
 st.markdown("""
     <style>
-    /* Tarjetas de Aniversario */
     .anniversary-card {
         background-color: #ffffff;
         border-left: 6px solid #1e3a8a; /* Azul fuerte corporativo */
@@ -48,8 +47,8 @@ st.markdown("""
     }
     .card-badge {
         display: inline-block;
-        background-color: #e0f2fe; /* Celeste/Azul suave muy estético */
-        color: #0369a1; /* Texto azul oscuro */
+        background-color: #e0f2fe; /* Fondo celeste suave */
+        color: #0369a1; /* Texto azul */
         padding: 5px 14px;
         border-radius: 20px;
         font-weight: 700;
@@ -59,11 +58,10 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ==========================================
-# 1. CARGA DE DATOS (Simulada)
+# 3. CARGA DE DATOS (Nómina de ejemplo)
 # ==========================================
-# REEMPLAZÁ ESTE BLOQUE por tu lectura real del Excel si ya tenés tu DataFrame, por ejemplo:
-# df_nomina = pd.read_excel("tu_archivo.xlsx")
-
+# NOTA: Si ya tenías una variable con tu Excel cargado (ej. df_nomina = pd.read_excel(...)),
+# podés usar esa misma y comentar estas líneas de abajo.
 @st.cache_data
 def cargar_datos_ejemplo():
     datos = [
@@ -80,18 +78,17 @@ df_nomina = cargar_datos_ejemplo()
 
 
 # ==========================================
-# 2. SECCIÓN DE INDICADORES (Métricas de cabecera)
+# 4. TÍTULOS E INDICADORES PRINCIPALES (Métricas)
 # ==========================================
 st.title("📊 Plataforma de Indicadores de RRHH")
 st.write("Control de dotación, rotación y eventos del personal.")
 
-# CORRECCIÓN: st.divider() reemplaza al st.hr() que fallaba
-st.divider()
+st.divider() # Línea divisoria limpia
 
-# Métricas rápidas arriba (idénticas a tu primera captura)
+# Bloque de indicadores de arriba (Volviendo a activarlos)
 m1, m2, m3, m4 = st.columns(4)
 with m1:
-    st.metric(label="Turnover Último Mes (abril-2026)", value="0.0 %")
+    st.metric(label="Turnover Último Mes", value="0.0 %")
 with m2:
     st.metric(label="Total Altas Acumuladas", value="4 Pers.")
 with m3:
@@ -99,45 +96,44 @@ with m3:
 with m4:
     st.metric(label="👥 Total Dotación", value=f"{len(df_nomina)} Pers.")
 
-# Espaciador seguro sin usar st.br()
 st.markdown("<br>", unsafe_allow_html=True)
 
 
 # ==========================================
-# 3. PESTAÑA / SECCIÓN DE ANIVERSARIOS
+# 5. SECCIÓN DE ANIVERSARIOS LABORALES
 # ==========================================
 st.header("🎉 Próximos Aniversarios Laborales")
 
-# Tratamiento seguro de la columna 'Mes' para que no rompa el multiselect
+# Extraemos los meses únicos de forma segura para el filtro
 if 'Mes' in df_nomina.columns:
     meses_limpios = df_nomina['Mes'].dropna().astype(str).unique()
     meses_disponibles = sorted(list(meses_limpios))
 else:
     meses_disponibles = []
 
-# Filtro multiselect (Vacío por defecto = Muestra TODOS)
+# Multiselect (Si queda vacío, muestra todos de forma automática)
 meses_seleccionados = st.multiselect(
     label="🔍 Filtrar por uno o más meses:",
     options=meses_disponibles,
-    placeholder="Mostrando todos los meses de forma automática..."
+    placeholder="Mostrando todos los meses por defecto..."
 )
 
-# Lógica de filtro abierto
+# Filtro dinámico
 if meses_seleccionados:
     df_filtrado = df_nomina[df_nomina['Mes'].isin(meses_seleccionados)]
 else:
-    df_filtrado = df_nomina  # Si está vacío, recupera la vista completa con todos
+    df_filtrado = df_nomina # Vista completa de la plataforma
 
 st.write(f"Mostrando **{len(df_filtrado)}** colaboradores en la lista:")
 
 
 # ==========================================
-# 4. RENDERIZADO EN FORMATO TARJETAS (GRID DE 3)
+# 6. RENDERIZADO EN TARJETAS (Grid de 3 columnas)
 # ==========================================
 col1, col2, col3 = st.columns(3)
 
 for idx, fila in df_filtrado.reset_index(drop=True).iterrows():
-    # Reparto equitativo entre las columnas
+    # Repartimos las tarjetas equitativamente en la grilla
     if idx % 3 == 0:
         columna_destino = col1
     elif idx % 3 == 1:
