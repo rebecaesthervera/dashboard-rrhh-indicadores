@@ -10,7 +10,7 @@ st.set_page_config(page_title="Gestión RRHH Exincor", layout="wide")
 # --- TUNEO DE COLOR DE FONDO Y DISEÑO DE TARJETAS ---
 st.markdown("""
     <style>
-    /* Fondo general de la plataforma más llamativo y moderno */
+    /* Fondo general de la plataforma con un sutil contraste azul-gris */
     .stApp {
         background-color: #f1f5f9;
     }
@@ -101,8 +101,8 @@ try:
     
     st.markdown("---")
     
-    # Sistema de pestañas
-    tab1, tab2, tab3, tab4 = st.tabs(["📊 Panel de Dotación", "📉 Rotación Mensual", "❌ Detalle de Bajas", "🎂 Cumpleaños y Aniversarios"])
+    # CORRECCIÓN DE TÍTULO: Cambiado "❌ Detalle de Bajas" por un título más profesional y sobrio
+    tab1, tab2, tab3, tab4 = st.tabs(["📊 Panel de Dotación", "📉 Rotación Mensual", "📋 Detalle de Egresos", "🎂 Cumpleaños y Aniversarios"])
 
     # --- TAB 1: PANEL DE DOTACIÓN ---
     with tab1:
@@ -166,26 +166,22 @@ try:
                             f"detectándose que el área de **{area_senior}** es la que presenta mayor densidad de este perfil experto."
                         )
                         
-                        # --- CORRECCIÓN CRÍTICA DE ALERTA DE JUBILACIONES ---
+                        # --- ALERTA DETALLADA DE PRÓXIMOS A JUBILARSE ---
                         st.markdown("---")
                         st.markdown("#### ⏳ Control de Seguimiento Pre-Jubilatorio")
                         
-                        # Buscamos de forma flexible si la columna se llama SEXO o GÉNERO
                         col_sexo = next((c for c in df_edad_valida.columns if 'SEXO' in c or 'GÉNERO' in c or 'GENERO' in c), None)
                         
                         if col_sexo:
-                            # Filtramos buscando la primera letra 'F' o 'M' para que tome 'Femenino', 'F', 'MASCULINO', etc.
                             jubilables = df_edad_valida[
                                 ((df_edad_valida[col_sexo].astype(str).str.upper().str.startswith('F')) & (df_edad_valida['EDAD'] >= 59)) |
                                 ((df_edad_valida[col_sexo].astype(str).str.upper().str.startswith('M')) & (df_edad_valida['EDAD'] >= 64))
                             ]
                         else:
-                            # Si no encuentra columna de sexo, te muestra a todos los mayores de 59 de forma preventiva
                             jubilables = df_edad_valida[df_edad_valida['EDAD'] >= 59]
                         
                         if not jubilables.empty:
                             st.warning(f"⚠️ **Atención:** Se identificaron **{len(jubilables)}** colaboradores alcanzando la edad límite o próximos a iniciar gestiones jubilatorias:")
-                            # Mostramos las columnas clave que existan
                             cols_mostrar_jub = [c for c in ['APELLIDO Y NOMBRE', 'ÁREA', 'EDAD', col_sexo] if c and c in jubilables.columns]
                             st.dataframe(jubilables[cols_mostrar_jub].sort_values('EDAD', ascending=False), hide_index=True, use_container_width=True)
                         else:
@@ -283,9 +279,9 @@ try:
             
             st.info(f"**Interpretación de Rotación:** El índice de rotación de personal (*Turnover*) {texto_rotacion} Al ocultar las proyecciones vacías del año, se evidencia con claridad el comportamiento real del período.")
 
-    # --- TAB 3: DETALLE DE BAJAS ---
+    # --- TAB 3: DETALLE DE EGRESOS ---
     with tab3:
-        st.header("❌ Detalle y Registro de Egresos")
+        st.header("📋 Detalle y Registro de Egresos")
         if not df_baj.empty:
             df_e = df_baj[df_baj['ANTIGUEDAD'].astype(str).str.contains('años|meses|días', case=False, na=False)].copy()
             df_e['FECHA_BAJA_DT'] = limpiar_fecha(df_e, 'FECHA DE BAJA')
