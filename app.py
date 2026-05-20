@@ -40,9 +40,10 @@ st.markdown("""
         background-color: #ffffff;
         border: 1px solid #e2e8f0;
         border-radius: 10px;
-        padding: 15px;
+        padding: 20px;
         box-shadow: 0 2px 6px rgba(0,0,0,0.03);
         text-align: center;
+        margin-bottom: 15px;
     }
     </style>
 """, unsafe_allow_html=True)
@@ -101,7 +102,6 @@ try:
     
     st.markdown("---")
     
-    # CORRECCIÓN DE TÍTULO: Cambiado "❌ Detalle de Bajas" por un título más profesional y sobrio
     tab1, tab2, tab3, tab4 = st.tabs(["📊 Panel de Dotación", "📉 Rotación Mensual", "📋 Detalle de Egresos", "🎂 Cumpleaños y Aniversarios"])
 
     # --- TAB 1: PANEL DE DOTACIÓN ---
@@ -125,67 +125,75 @@ try:
             if sel_area != "Todas": df_fil = df_fil[df_fil['ÁREA'] == sel_area]
             if sel_nombre != "Todos": df_fil = df_fil[df_fil['APELLIDO Y NOMBRE'] == sel_nombre]
 
-            # Envolver métrica principal en tarjeta visual
+            # Fila Superior: Tarjeta individual para el conteo principal de activos
             st.markdown('<div class="metric-container">', unsafe_allow_html=True)
-            st.metric("Total Personal Activo Filtrado", len(df_fil))
+            st.metric("Total Personal Activo Filtrado", f"{len(df_fil)} colaboradores")
             st.markdown('</div>', unsafe_allow_html=True)
             
-            st.markdown("<br>", unsafe_allow_html=True)
+            # Fila de sub-tarjetas separadas (Edad Promedio, Segmento Crítico, Área Senior)
+            if 'EDAD' in df_fil.columns:
+                df_fil['EDAD'] = pd.to_numeric(df_fil['EDAD'], errors='coerce')
+                df_edad_valida = df_fil.dropna(subset=['EDAD']).copy()
+                if not df_edad_valida.empty:
+                    promedio_edad = df_edad_valida['EDAD'].mean()
+                    adultos_mayores = df_edad_valida[df_edad_valida['EDAD'] >= 46]
+                    cant_adultos = len(adultos_mayores)
+                    porc_adultos = (cant_adultos / len(df_edad_valida)) * 100 if len(df_edad_valida) > 0 else 0
+                    
+                    area_senior = "N/A"
+                    if 'ÁREA' in adultos_mayores.columns and not adultos_mayores.empty:
+                        area_senior = adultos_mayores['ÁREA'].value_counts().index[0]
+                    
+                    sub_c1, sub_c2, sub_c3 = st.columns(3)
+                    with sub_c1:
+                        st.markdown(f'<div class="metric-container"><p style="margin:0; font-size:12px; color:#64748B; font-weight:600; text-transform:uppercase;">Edad Promedio</p><p style="margin:5px 0 0 0; font-size:22px; font-weight:700; color:#1E3A8A;">{promedio_edad:.1f} años</p></div>', unsafe_allow_html=True)
+                    with sub_c2:
+                        st.markdown(f'<div class="metric-container"><p style="margin:0; font-size:12px; color:#64748B; font-weight:600; text-transform:uppercase;">Segmento Crítico (+46 Años)</p><p style="margin:5px 0 0 0; font-size:22px; font-weight:700; color:#1E3A8A;">{cant_adultos} ({porc_adultos:.1f}%)</p></div>', unsafe_allow_html=True)
+                    with sub_c3:
+                        st.markdown(f'<div class="metric-container"><p style="margin:0; font-size:12px; color:#64748B; font-weight:600; text-transform:uppercase;">Mayor Densidad Experta</p><p style="margin:5px 0 0 0; font-size:22px; font-weight:700; color:#1E3A8A;">{area_senior}</p></div>', unsafe_allow_html=True)
             
+            st.markdown("<br>", unsafe_allow_html=True)
             st.markdown("### 📈 Indicadores Demográficos y Estructura Organizacional")
             c_dem1, c_dem2 = st.columns(2)
             
             with c_dem1:
-                if 'EDAD' in df_fil.columns:
-                    df_fil['EDAD'] = pd.to_numeric(df_fil['EDAD'], errors='coerce')
-                    df_edad_valida = df_fil.dropna(subset=['EDAD'])
-                    if not df_edad_valida.empty:
-                        bins = [0, 25, 35, 45, 55, 100]
-                        labels = ['Hasta 25 años', '26 a 35 años', '36 a 45 años', '46 a 55 años', 'Más de 55 años']
-                        df_edad_valida['RANGO_EDAD'] = pd.cut(df_edad_valida['EDAD'], bins=bins, labels=labels, right=False)
-                        promedio_edad = df_edad_valida['EDAD'].mean()
+                if 'EDAD' in df_fil.columns and not df_edad_valida.empty:
+                    bins = [0, 25, 35, 45, 55, 100]
+                    labels = ['Hasta 25 años', '26 a 35 años', '36 a 45 años', '46 a 55 años', 'Más de 55 años']
+                    df_edad_valida['RANGO_EDAD'] = pd.cut(df_edad_valida['EDAD'], bins=bins, labels=labels, right=False)
+                    
+                    fig_edad = px.histogram(df_edad_valida, x='RANGO_EDAD', color='ÁREA' if 'ÁREA' in df_edad_valida.columns else None,
+                                            title="Distribución de Rangos de Edad Abiertos por Área",
+                                            category_orders={'RANGO_EDAD': labels},
+                                            color_discrete_sequence=PALETA_AZUL_GRIS)
+                    fig_edad.update_layout(xaxis_title="Rango de Edad", yaxis_title="Cantidad de Colaboradores", height=300, legend_title_text="Áreas")
+                    st.plotly_chart(fig_edad, use_container_width=True)
+                    
+                    # --- CONTROL DE SEGUIMIENTO PRE-JUBILATORIO BLINDADO ---
+                    st.markdown("---")
+                    st.markdown("#### ⏳ Control de Seguimiento Pre-Jubilatorio")
+                    
+                    col_sexo = next((c for c in df_edad_valida.columns if 'SEXO' in c or 'GÉNERO' in c or 'GENERO' in c), None)
+                    
+                    if col_sexo:
+                        # Limpieza robusta usando .loc para evitar el Warning de copia
+                        df_edad_valida.loc[:, col_sexo] = df_edad_valida[col_sexo].astype(str).str.strip().str.upper()
                         
-                        adultos_mayores = df_edad_valida[df_edad_valida['EDAD'] >= 46]
-                        cant_adultos = len(adultos_mayores)
-                        porc_adultos = (cant_adultos / len(df_edad_valida)) * 100
-                        
-                        area_senior = "N/A"
-                        if 'ÁREA' in adultos_mayores.columns and not adultos_mayores.empty:
-                            area_senior = adultos_mayores['ÁREA'].value_counts().index[0]
-                        
-                        fig_edad = px.histogram(df_edad_valida, x='RANGO_EDAD', color='ÁREA' if 'ÁREA' in df_edad_valida.columns else None,
-                                                title=f"Distribución de Rangos de Edad Abiertos por Área (Promedio: {promedio_edad:.1f} años)",
-                                                category_orders={'RANGO_EDAD': labels},
-                                                color_discrete_sequence=PALETA_AZUL_GRIS)
-                        fig_edad.update_layout(xaxis_title="Rango de Edad", yaxis_title="Cantidad de Colaboradores", height=300, legend_title_text="Áreas")
-                        st.plotly_chart(fig_edad, use_container_width=True)
-                        
-                        st.info(
-                            f"**Resumen Ejecutivo (Edad):** La dotación activa presenta una edad promedio de **{promedio_edad:.1f} años**. "
-                            f"El **{porc_adultos:.1f}%** de la nómina (**{cant_adultos} colaboradores**) se concentra en las franjas de **46 años o más**, "
-                            f"detectándose que el área de **{area_senior}** es la que presenta mayor densidad de este perfil experto."
-                        )
-                        
-                        # --- ALERTA DETALLADA DE PRÓXIMOS A JUBILARSE ---
-                        st.markdown("---")
-                        st.markdown("#### ⏳ Control de Seguimiento Pre-Jubilatorio")
-                        
-                        col_sexo = next((c for c in df_edad_valida.columns if 'SEXO' in c or 'GÉNERO' in c or 'GENERO' in c), None)
-                        
-                        if col_sexo:
-                            jubilables = df_edad_valida[
-                                ((df_edad_valida[col_sexo].astype(str).str.upper().str.startswith('F')) & (df_edad_valida['EDAD'] >= 59)) |
-                                ((df_edad_valida[col_sexo].astype(str).str.upper().str.startswith('M')) & (df_edad_valida['EDAD'] >= 64))
-                            ]
-                        else:
-                            jubilables = df_edad_valida[df_edad_valida['EDAD'] >= 59]
-                        
-                        if not jubilables.empty:
-                            st.warning(f"⚠️ **Atención:** Se identificaron **{len(jubilables)}** colaboradores alcanzando la edad límite o próximos a iniciar gestiones jubilatorias:")
-                            cols_mostrar_jub = [c for c in ['APELLIDO Y NOMBRE', 'ÁREA', 'EDAD', col_sexo] if c and c in jubilables.columns]
-                            st.dataframe(jubilables[cols_mostrar_jub].sort_values('EDAD', ascending=False), hide_index=True, use_container_width=True)
-                        else:
-                            st.success("✅ No se registran colaboradores en rangos de edad críticos para trámite jubilatorio inmediato.")
+                        # Filtro por caracteres contenidos (pesca 'Femenino', 'Masculino', 'F' o 'M')
+                        jubilables = df_edad_valida[
+                            ((df_edad_valida[col_sexo].str.contains('F', na=False)) & (df_edad_valida['EDAD'] >= 59)) |
+                            ((df_edad_valida[col_sexo].str.contains('M', na=False)) & (df_edad_valida['EDAD'] >= 64))
+                        ]
+                    else:
+                        # Filtro preventivo de edad general por encima de 59 si no hay columna de sexo
+                        jubilables = df_edad_valida[df_edad_valida['EDAD'] >= 59]
+                    
+                    if not jubilables.empty:
+                        st.warning(f"⚠️ **Atención:** Se identificaron **{len(jubilables)}** colaboradores alcanzando la edad límite o próximos a iniciar gestiones jubilatorias:")
+                        cols_mostrar_jub = [c for c in ['APELLIDO Y NOMBRE', 'ÁREA', 'EDAD', col_sexo] if c and c in jubilables.columns]
+                        st.dataframe(jubilables[cols_mostrar_jub].sort_values('EDAD', ascending=False), hide_index=True, use_container_width=True)
+                    else:
+                        st.success("✅ No se registran colaboradores en rangos de edad críticos para trámite jubilatorio inmediato.")
             
             with c_dem2:
                 if 'RESPONSABLE DIRECTO' in df_fil.columns:
@@ -331,7 +339,6 @@ try:
         st.header("🎉 Agenda de Celebraciones de la Nómina")
         
         meses_lista = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"]
-        
         sel_meses = st.multiselect("Filtrar por uno o más meses específicos (Dejar vacío para ver todo el año de corrido)", options=meses_lista)
         
         t_cump, t_ani = st.tabs(["🎂 Cumpleaños", "🎖️ Aniversarios Laborales"])
