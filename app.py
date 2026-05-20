@@ -1,72 +1,167 @@
-import streamlit as pd
 import streamlit as st
-from datetime import datetime
+import pandas as pd
 
-# --- CONFIGURACIÓN DE PÁGINA O ESTILOS ---
+# --- CONFIGURACIÓN DE LA PÁGINA ---
+st.set_page_config(
+    page_title="Plataforma de Indicadores - RRHH",
+    page_icon="📊",
+    layout="wide"
+)
+
+# --- ESTILOS CSS PERSONALIZADOS (Color y Tarjetas) ---
 st.markdown("""
     <style>
+    /* Estilos generales de la app */
+    .main {
+        background-color: #f8fafc;
+    }
+    
+    /* Tarjetas de Aniversario */
     .anniversary-card {
-        background-color: #f0f4f8;
-        border-left: 5px solid #ff4b4b; /* Color que resalte (ej. Rojo/Naranja Exincor) */
-        padding: 15px;
-        border-radius: 8px;
-        box-shadow: 2px 2px 5px rgba(0,0,0,0.05);
-        margin-bottom: 15px;
+        background-color: #ffffff;
+        border-left: 6px solid #1e3a8a; /* Azul fuerte corporativo */
+        padding: 20px;
+        border-radius: 12px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+        margin-bottom: 20px;
+        transition: transform 0.2s ease;
+        border-top: 1px solid #f1f5f9;
+        border-right: 1px solid #f1f5f9;
+        border-bottom: 1px solid #f1f5f9;
     }
-    .card-title {
-        font-size: 18px;
-        font-weight: bold;
-        color: #1e293b;
-        margin-bottom: 5px;
+    .anniversary-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 16px rgba(0, 0, 0, 0.08);
     }
-    .card-subtitle {
-        font-size: 14px;
-        color: #64748b;
+    .card-emojis {
+        font-size: 26px;
+        margin-bottom: 6px;
     }
-    .highlight {
-        color: #ff4b4b;
-        font-weight: bold;
+    .card-name {
+        font-size: 19px;
+        font-weight: 700;
+        color: #0f172a;
+        margin-bottom: 4px;
+        font-family: 'Source Sans Pro', sans-serif;
+    }
+    .card-role {
+        font-size: 13px;
+        color: #475569;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        margin-bottom: 14px;
+    }
+    .card-badge {
+        display: inline-block;
+        background-color: #e0f2fe; /* Celeste/Azul suave muy estético */
+        color: #0369a1; /* Texto azul oscuro */
+        padding: 5px 14px;
+        border-radius: 20px;
+        font-weight: 700;
+        font-size: 13px;
     }
     </style>
 """, unsafe_allow_html=True)
 
-st.title("🎉 Centro de Aniversarios Laborales")
+# ==========================================
+# 1. CARGA DE DATOS (Simulada o Real)
+# ==========================================
+# REEMPLAZÁ ESTE BLOQUE por tu lectura real del Excel si lo tenés en otra variable, por ejemplo:
+# df_nomina = pd.read_excel("tu_archivo.xlsx")
 
-# --- 1. CARGA DE DATOS (Ejemplo) ---
-# Aquí iría tu lectura de Excel / Base de datos (ej. Nómina Exincor)
-nomina = [
-    {"nombre": "Daniel Abalos", "puesto": "Maquinista Impresora", "mes": "Mayo", "anios": 5},
-    {"nombre": "Roman Aban", "puesto": "Supervisor de Mantenimiento", "mes": "Junio", "anios": 3},
-    {"nombre": "Estela Bustamante", "puesto": "Jefe de Administración", "mes": "Mayo", "anios": 10},
-]
+@st.cache_data
+def cargar_datos_ejemplo():
+    # Datos de prueba basados en tu captura para que veas el diseño de inmediato
+    datos = [
+        {"Nombre": "Daniel Abalos", "Puesto": "Maquinista Impresora", "Mes": "Mayo", "Antiguedad": 5},
+        {"Nombre": "Roman Aban", "Puesto": "Supervisor de Mantenimiento", "Mes": "Junio", "Antiguedad": 3},
+        {"Nombre": "Estela Bustamante", "Puesto": "Jefe de Administración", "Mes": "Mayo", "Antiguedad": 10},
+        {"Nombre": "Carlos Gómez", "Puesto": "Operario de Producción", "Mes": "Julio", "Antiguedad": 2},
+        {"Nombre": "Laura Martínez", "Puesto": "Analista de COMEX", "Mes": "Mayo", "Antiguedad": 4},
+        {"Nombre": "Jorge Rodriguez", "Puesto": "Encargado de Logística", "Mes": "Agosto", "Antiguedad": 8}
+    ]
+    return pd.DataFrame(datos)
 
-# --- 2. FILTROS (Si no elige nada, muestra TODOS) ---
-meses_disponibles = list(set([emp["mes"] for emp in nomina]))
-meses_seleccionados = st.multiselect("Filtrar por Mes de Aniversario", opciones=meses_disponibles, default=[])
+df_nomina = cargar_datos_ejemplo()
 
-# Aplicar filtro si hay selección; si no, mostrar todos
-if meses_seleccionados:
-    empleados_filtrados = [emp for emp in nomina if emp["mes"] in meses_seleccionados]
+
+# ==========================================
+# 2. SECCIÓN DE INDICADORES (Métricas de cabecera)
+# ==========================================
+st.title("📊 Plataforma de Indicadores de RRHH")
+st.write("Control de dotación, rotación y eventos del personal.")
+st.hr()
+
+# Métricas rápidas arriba (manteniendo la prolijidad de tu primera pantalla)
+m1, m2, m3, m4 = st.columns(4)
+with m1:
+    st.metric(label="📈 Turnover", value="2.4 %", delta="-0.5 %")
+with m2:
+    st.metric(label="✨ Altas Mes", value="4", delta="2")
+with m3:
+    st.metric(label="📉 Bajas Mes", value="1", delta="-1")
+with m4:
+    st.metric(label="👥 Total Dotación", value=str(len(df_nomina)))
+
+st.br()
+
+
+# ==========================================
+# 3. PESTAÑA / SECCIÓN DE ANIVERSARIOS
+# ==========================================
+st.header("🎉 Próximos Aniversarios Laborales")
+
+# --- TRATAMIENTO SEGURO CONTRA ERRORES ---
+# Limpiamos nulos de la columna 'Mes', pasamos a texto y ordenamos para que no rompa el multiselect
+if 'Mes' in df_nomina.columns:
+    meses_limpios = df_nomina['Mes'].dropna().astype(str).unique()
+    meses_disponibles = sorted(list(meses_limpios))
 else:
-    empleados_filtrados = nomina
+    meses_disponibles = []
 
-# --- 3. DESPLIEGUE EN TARJETAS CON COLOR ---
-st.write(f"Mostrando {len(empleados_filtrados)} aniversarios:")
+# --- FILTRO MULTISELECT (Si está vacío, muestra TODOS) ---
+meses_seleccionados = st.multiselect(
+    label="🔍 Filtrar por uno o más meses:",
+    options=meses_disponibles,
+    placeholder="Mostrando todos los meses de forma automática..."
+)
 
-# Creamos columnas para que las tarjetas no ocupen todo el ancho horizontal si son muchas
-col1, col2 = st.columns(2)
+# Lógica del filtro abierto
+if meses_seleccionados:
+    df_filtrado = df_nomina[df_nomina['Mes'].isin(meses_seleccionados)]
+else:
+    df_filtrado = df_nomina  # Si no hay selección, recuperamos la vista completa
 
-for i, emp in enumerate(empleados_filtrados):
-    # Alternamos entre columna 1 y columna 2 para diseño Grid
-    target_col = col1 if i % 2 == 0 else col2
+st.write(f"Mostrando **{len(df_filtrado)}** colaboradores en la lista:")
+
+
+# ==========================================
+# 4. RENDERIZADO EN FORMATO TARJETAS (GRID)
+# ==========================================
+# Distribución limpia en 3 columnas
+col1, col2, col3 = st.columns(3)
+
+# Resetear el índice para que el reparto sea correlativo y prolijo
+for idx, fila in df_filtrado.reset_index(drop=True).iterrows():
     
-    with target_col:
+    # Repartimos de forma equitativa entre las 3 columnas
+    if idx % 3 == 0:
+        columna_destino = col1
+    elif idx % 3 == 1:
+        columna_destino = col2
+    else:
+        columna_destino = col3
+        
+    with columna_destino:
+        # Armamos la tarjeta con HTML inyectado de forma segura
         st.markdown(f"""
             <div class="anniversary-card">
-                <div class="card-title">🎂 {emp['nombre']}</div>
-                <div class="card-subtitle">Puesto: {emp['puesto']}</div>
-                <div style="margin-top: 10px; font-size: 15px;">
-                    ¡Cumple <span class="highlight">{emp['anios']} años</span> en la empresa este mes de <b>{emp['mes']}</b>!
+                <div class="card-emojis">🎈 ✨</div>
+                <div class="card-name">{fila['Nombre']}</div>
+                <div class="card-role">{fila['Puesto']}</div>
+                <div class="card-badge">
+                    🎂 {fila['Antiguedad']} Años • {fila['Mes']}
                 </div>
             </div>
         """, unsafe_allow_html=True)
