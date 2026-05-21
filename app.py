@@ -45,6 +45,15 @@ st.markdown("""
         text-align: center;
         margin-bottom: 15px;
     }
+
+    /* Consola visual para destacar el filtro de meses */
+    .filter-console {
+        background-color: #e2e8f0;
+        padding: 16px;
+        border-radius: 10px;
+        border: 1px solid #cbd5e1;
+        margin-bottom: 20px;
+    }
     </style>
 """, unsafe_allow_html=True)
 
@@ -176,16 +185,13 @@ try:
                     col_sexo = next((c for c in df_edad_valida.columns if 'SEXO' in c or 'GÉNERO' in c or 'GENERO' in c), None)
                     
                     if col_sexo:
-                        # Limpieza robusta usando .loc para evitar el Warning de copia
                         df_edad_valida.loc[:, col_sexo] = df_edad_valida[col_sexo].astype(str).str.strip().str.upper()
                         
-                        # Filtro por caracteres contenidos (pesca 'Femenino', 'Masculino', 'F' o 'M')
                         jubilables = df_edad_valida[
                             ((df_edad_valida[col_sexo].str.contains('F', na=False)) & (df_edad_valida['EDAD'] >= 59)) |
                             ((df_edad_valida[col_sexo].str.contains('M', na=False)) & (df_edad_valida['EDAD'] >= 64))
                         ]
                     else:
-                        # Filtro preventivo de edad general por encima de 59 si no hay columna de sexo
                         jubilables = df_edad_valida[df_edad_valida['EDAD'] >= 59]
                     
                     if not jubilables.empty:
@@ -334,12 +340,23 @@ try:
             tipo_pred = df_e[col_t].value_counts().index[0] if not df_e[col_t].empty else "N/A"
             st.info(f"**Análisis Crítico de Egresos:** La principal causa registrada de salida corresponde a **{motivo_pred}**, clasificada mayoritariamente como **{tipo_pred}**.")
 
-    # --- TAB 4: CUMPLEAÑOS Y ANIVERSARIOS ---
+    # --- TAB 4: CUMPLEAÑOS Y ANIVERSARIOS (PANEL DE MESES MEJORADO) ---
     with tab4:
         st.header("🎉 Agenda de Celebraciones de la Nómina")
         
         meses_lista = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"]
-        sel_meses = st.multiselect("Filtrar por uno o más meses específicos (Dejar vacío para ver todo el año de corrido)", options=meses_lista)
+        
+        # --- CONSOLA DE FILTROS REDISEÑADA PARA MAYOR CLARIDAD ---
+        st.markdown('<div class="filter-console">', unsafe_allow_html=True)
+        st.markdown("<p style='margin:0 0 8px 0; font-weight:700; color:#0f172a; font-size:15px;'>🔍 Panel de Consulta Temporal</p>", unsafe_allow_html=True)
+        
+        sel_meses = st.multiselect(
+            label="Seleccioná uno o más meses para consultar la agenda:",
+            options=meses_lista,
+            placeholder="Hacé clic acá para desplegar los meses...",
+            help="Si no elegís ningún mes, el sistema te mostrará los eventos de todo el año de corrido."
+        )
+        st.markdown('</div>', unsafe_allow_html=True)
         
         t_cump, t_ani = st.tabs(["🎂 Cumpleaños", "🎖️ Aniversarios Laborales"])
         
