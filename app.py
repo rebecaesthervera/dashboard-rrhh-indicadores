@@ -32,8 +32,9 @@ st.markdown("""
         box-shadow: 0 6px 16px rgba(0, 0, 0, 0.08);
     }
     .card-title { font-size: 18px; font-weight: 700; color: #0f172a; margin-bottom: 4px; }
-    .card-subtitle { font-size: 13px; color: #475569; font-weight: 600; text-transform: uppercase; margin-bottom: 10px; }
-    .card-badge { display: inline-block; background-color: #e0f2fe; color: #0369a1; padding: 4px 12px; border-radius: 20px; font-weight: 700; font-size: 12px; }
+    .card-subtitle { font-size: 13px; color: #475569; font-weight: 600; text-transform: uppercase; margin-bottom: 6px; }
+    .card-badge { display: inline-block; background-color: #e0f2fe; color: #0369a1; padding: 4px 12px; border-radius: 20px; font-weight: 700; font-size: 12px; margin-right: 4px; margin-bottom: 4px;}
+    .card-badge-secondary { display: inline-block; background-color: #f1f5f9; color: #475569; padding: 4px 12px; border-radius: 20px; font-weight: 600; font-size: 11px; }
     
     /* Diseño estilizado para los contenedores de las métricas superiores */
     .metric-container {
@@ -172,7 +173,6 @@ try:
                         col_sexo = next((c for c in df_edad_valida.columns if 'SEXO' in c or 'GÉNERO' in c or 'GENERO' in c), None)
                         
                         if col_sexo:
-                            # CORRECCIÓN SEGURA: Usamos .loc para evitar warnings en la limpieza
                             df_edad_valida.loc[:, col_sexo] = df_edad_valida[col_sexo].astype(str).str.strip().str.upper()
                             jubilables = df_edad_valida[
                                 ((df_edad_valida[col_sexo].str.contains('F', na=False)) & (df_edad_valida['EDAD'] >= 59)) |
@@ -333,8 +333,18 @@ try:
         
         meses_lista = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"]
         
-        # Dejamos el selector exactamente acá, que es donde el diseño original no se rompe
-        sel_meses = st.multiselect("🔍 Filtrar agenda por uno o más meses específicos (Dejá vacío para ver todo el año de corrido):", options=meses_lista)
+        # --- MEJORA: CONSOLA DE FILTRO COMPACTO ---
+        c_filtro_izq, c_filtro_der = st.columns([1.5, 3.5])
+        with c_filtro_izq:
+            sel_mes_dropdown = st.selectbox(
+                label="📅 Seleccionar Período de Consulta:",
+                options=["Todo el Año"] + meses_lista,
+                index=0
+            )
+        
+        # Ajustamos la variable para que se integre perfectamente con tus condicionales existentes
+        sel_meses = [] if sel_mes_dropdown == "Todo el Año" else [sel_mes_dropdown]
+        st.markdown("<br>", unsafe_allow_html=True)
         
         t_cump, t_ani = st.tabs(["🎂 Cumpleaños", "🎖️ Aniversarios Laborales"])
         
@@ -365,12 +375,19 @@ try:
                         else: target_col = col3
                         
                         with target_col:
+                            # --- CALCULO DE EDAD QUE CUMPLE ---
+                            edad_txt = ""
+                            if pd.notnull(r['DT_NAC']):
+                                edad_que_cumple = hoy.year - r['DT_NAC'].year
+                                edad_txt = f"• Cumple {int(edad_que_cumple)} años"
+
                             st.markdown(f"""
                                 <div class="custom-card" style="border-left-color: #ef4444;">
                                     <div style="font-size: 22px; margin-bottom: 5px;">🎂 ✨</div>
                                     <div class="card-title">{r['APELLIDO Y NOMBRE']}</div>
                                     <div class="card-subtitle">Área: {r['ÁREA'] if 'ÁREA' in r else 'Exincor'}</div>
                                     <div class="card-badge" style="background-color: #fee2e2; color: #991b1b;">📅 Día {int(r['DIA'])} de {r['MES_NOMBRE']}</div>
+                                    <div class="card-badge-secondary">{edad_txt}</div>
                                 </div>
                             """, unsafe_allow_html=True)
                 else:
@@ -408,12 +425,27 @@ try:
                         with target_col:
                             ant = hoy.year - r['DT_ING'].year
                             puesto_txt = r['PUESTO'] if 'PUESTO' in r else (r['ÁREA'] if 'ÁREA' in r else 'Exincor')
+                            
+                            # --- ASIGNACIÓN DE ETIQUETA POR ANTIGÜEDAD ---
+                            if ant >= 5:
+                                tag_reconocimiento = "🎖️ Talento Senior"
+                            elif ant >= 2:
+                                tag_reconocimiento = "⚡ Trayectoria Consolidada"
+                            else:
+                                tag_reconocimiento = "🌱 Nuevo Talento"
+                                
+                            fecha_exacta_txt = r[col_f_ing] if col_f_ing in r else ""
+
                             st.markdown(f"""
                                 <div class="custom-card" style="border-left-color: #1E3A8A;">
                                     <div style="font-size: 22px; margin-bottom: 5px;">🎖️ 🏆</div>
                                     <div class="card-title">{r['APELLIDO Y NOMBRE']}</div>
                                     <div class="card-subtitle">Puesto: {puesto_txt}</div>
-                                    <div class="card-badge">🎉 {int(ant)} Años • {int(r['DIA'])} de {r['MES_NOMBRE']}</div>
+                                    <div style="margin-bottom: 8px;">
+                                        <span class="card-badge">🎉 {int(ant)} Años • {int(r['DIA'])} de {r['MES_NOMBRE']}</span>
+                                    </div>
+                                    <div class="card-badge-secondary" style="background-color: #f0fdf4; color: #166534; font-weight:700;">{tag_reconocimiento}</div>
+                                    <div style="font-size: 11px; color: #64748B; margin-top: 6px; font-weight: 500;">Ingreso: {fecha_exacta_txt}</div>
                                 </div>
                             """, unsafe_allow_html=True)
                 else:
