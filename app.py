@@ -120,26 +120,35 @@ try:
     
     tab1, tab2, tab3, tab4 = st.tabs(["📊 Panel de Dotación", "📉 Rotación Mensual", "📋 Detalle de Egresos", "🎂 Cumpleaños y Aniversarios"])
 
-    # --- TAB 1: PANEL DE DOTACIÓN ---
+    # --- TAB 1: PANEL DE DOTACIÓN (FILTROS CORREGIDOS) ---
     with tab1:
         if not df_main.empty:
-            col_f1, col_f2, col_f3, col_f4, col_f5 = st.columns(5)
-            def get_opts(df, col, d="Todos"):
-                return [d] + sorted(df[col].dropna().unique().tolist()) if col in df.columns else [d]
+            tipo_col = next((c for c in df_main.columns if 'CONTRATACIÓN' in c or 'CONTRATACION' in c), 'TIPO DE CONTRATACIÓN')
             
+            col_f1, col_f2, col_f3, col_f4, col_f5 = st.columns(5)
+            
+            def get_opts(df, col, d="Todos"):
+                if col in df.columns:
+                    valores = df[col].dropna().astype(str).str.strip().unique()
+                    return [d] + sorted([v for v in valores if v != '' and v != '-'])
+                return [d]
+            
+            # Los selectores se arman SIEMPRE con el universo completo de opciones para evitar que desaparezcan nombres
             with col_f1: sel_conv = st.selectbox("Convenio", get_opts(df_main, 'CONVENIO'))
             with col_f2: sel_resp = st.selectbox("Responsable Directo", get_opts(df_main, 'RESPONSABLE DIRECTO'))
-            tipo_col = next((c for c in df_main.columns if 'CONTRATACIÓN' in c or 'CONTRATACION' in c), 'TIPO DE CONTRATACIÓN')
             with col_f3: sel_tipo = st.selectbox("Tipo Contratación", get_opts(df_main, tipo_col))
             with col_f4: sel_area = st.selectbox("Área", get_opts(df_main, 'ÁREA', "Todas"))
-            with col_f5: sel_nombre = st.selectbox("Personal", get_opts(df_main, 'APELLIDO Y NOMBRE'))
+            with col_f5: sel_nombre = st.selectbox("Personal (Buscar Apellido)", get_opts(df_main, 'APELLIDO Y NOMBRE'))
 
-            df_fil = df_main.copy()
-            if sel_conv != "Todos": df_fil = df_fil[df_fil['CONVENIO'] == sel_conv]
-            if sel_resp != "Todos": df_fil = df_fil[df_fil['RESPONSABLE DIRECTO'] == sel_resp]
-            if sel_tipo != "Todos": df_fil = df_fil[df_fil[tipo_col] == sel_tipo]
-            if sel_area != "Todas": df_fil = df_fil[df_fil['ÁREA'] == sel_area]
-            if sel_nombre != "Todos": df_fil = df_fil[df_fil['APELLIDO Y NOMBRE'] == sel_nombre]
+            # LÓGICA DE FILTRADO INTELIGENTE: Si busca una persona específica, ignora el resto para que no choque
+            if sel_nombre != "Todos":
+                df_fil = df_main[df_main['APELLIDO Y NOMBRE'] == sel_nombre].copy()
+            else:
+                df_fil = df_main.copy()
+                if sel_conv != "Todos": df_fil = df_fil[df_fil['CONVENIO'] == sel_conv]
+                if sel_resp != "Todos": df_fil = df_fil[df_fil['RESPONSABLE DIRECTO'] == sel_resp]
+                if sel_tipo != "Todos": df_fil = df_fil[df_fil[tipo_col] == sel_tipo]
+                if sel_area != "Todas": df_fil = df_fil[df_fil['ÁREA'] == sel_area]
 
             # Procesamiento demográfico previo
             promedio_edad = 0
@@ -159,7 +168,7 @@ try:
                     if 'ÁREA' in adultos_mayores.columns and not adultos_mayores.empty:
                         area_senior = adultos_mayores['ÁREA'].value_counts().index[0]
 
-            # --- CORRECCIÓN INTEGRAL: Tarjetas HTML puras blindadas para evitar desbordes ---
+            # Tarjetas HTML superiores blindadas
             c_sup1, c_sup2, c_sup3, c_sup4 = st.columns([1.5, 1, 1.25, 1.25])
             with c_sup1:
                 st.markdown(f'<div class="metric-card-premium"><div class="metric-card-title">Total Personal Activo Filtrado</div><div class="metric-card-value">{len(df_fil)}</div></div>', unsafe_allow_html=True)
@@ -168,7 +177,7 @@ try:
             with c_sup3:
                 st.markdown(f'<div class="metric-card-premium"><div class="metric-card-title">Segmento Crítico (+46 Años)</div><div class="metric-card-value">{cant_adultos} ({porc_adultos:.0f}%)</div></div>', unsafe_allow_html=True)
             with c_sup4:
-                st.markdown(f'<div class="metric-card-premium"><div class="metric-card-title">Mayor Densidad Experta</div><div class="metric-card-value" style="font-size: 20px;">{area_senior}</div></div>', unsafe_allow_html=True)
+                st.markdown(f'<div class="metric-card-premium"><div class="metric-card-title">Mayor Densidad Experta</div><div class="metric-card-value" style="font-size: 18px;">{area_senior}</div></div>', unsafe_allow_html=True)
             
             st.markdown("<br>", unsafe_allow_html=True)
             st.markdown("### 📈 Indicadores Demográficos y Estructura Organizacional")
@@ -247,7 +256,7 @@ try:
                         fig.update_layout(height=220, margin=dict(t=30, b=0, l=0, r=0), showlegend=False, title={'text': t, 'x': 0.5})
                         ui.plotly_chart(fig, use_container_width=True)
 
-    # --- TAB 2: ROTACIÓN MENSUAL (Métricas blindadas solucionadas) ---
+    # --- TAB 2: ROTACIÓN MENSUAL ---
     with tab2:
         st.header("📉 Análisis de Rotación y Movimientos")
         if not df_rot.empty:
@@ -269,7 +278,6 @@ try:
                 ult_mes = "N/A"
                 df_rot_activa = df_rot.copy()
 
-            # --- SOLUCIÓN: Empaquetamiento HTML para meter los datos adentro de los recuadros blancos ---
             m1, m2, m3 = st.columns(3)
             with m1:
                 st.markdown(f'<div class="metric-card-premium"><div class="metric-card-title">Turnover Último Mes ({ult_mes})</div><div class="metric-card-value">{ult_rot:.1f}%</div></div>', unsafe_allow_html=True)
