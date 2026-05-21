@@ -44,13 +44,12 @@ st.markdown("""
         padding: 20px;
         box-shadow: 0 4px 12px rgba(0,0,0,0.04);
         text-align: center;
-        margin-bottom: 12px;
     }
     </style>
 """, unsafe_allow_html=True)
 
-# 2. COLORES Y TRADUCCIONES (Inspirados en la paleta premium de tu referencia)
-PALETA_PREMIUM = ['#0f2c59', '#1d4ed8', '#d4af37', '#64748b', '#38bdf8', '#cbd5e1']
+# 2. COLORES Y TRADUCCIONES (Inspirados en la paleta premium, sin amarillo)
+PALETA_PREMIUM = ['#0f2c59', '#1d4ed8', '#b1b1b1', '#64748b', '#38bdf8', '#5a8cb3']
 COLOR_BAJAS_SUAVE = '#64748B'  
 MESES_ES = {
     'January': 'Enero', 'February': 'Febrero', 'March': 'Marzo', 'April': 'Abril',
@@ -126,15 +125,10 @@ try:
             if sel_area != "Todas": df_fil = df_fil[df_fil['ÁREA'] == sel_area]
             if sel_nombre != "Todos": df_fil = df_fil[df_fil['APELLIDO Y NOMBRE'] == sel_nombre]
 
-            # --- PARTE SUPERIOR MEJORADA: Distribución 1 columna para Total y 3 para Indicadores Clave ---
-            c_sup1, c_sup2, c_sup3, c_sup4 = st.columns([1.5, 1, 1.25, 1.25])
+            st.markdown('<div class="metric-container">', unsafe_allow_html=True)
+            st.metric("Total Personal Activo Filtrado", f"{len(df_fil):,}".replace(",", "."))
+            st.markdown('</div>', unsafe_allow_html=True)
             
-            with c_sup1:
-                st.markdown('<div class="metric-container" style="height: 120px; padding-top: 25px;">', unsafe_allow_html=True)
-                st.metric("Total Personal Activo Filtrado", f"{len(df_fil):,}".replace(",", "."))
-                st.markdown('</div>', unsafe_allow_html=True)
-
-            # Lógica y procesamiento de datos demográficos antes de pintar las métricas
             promedio_edad = 0
             cant_adultos = 0
             porc_adultos = 0
@@ -151,21 +145,6 @@ try:
                     porc_adultos = (cant_adultos / len(df_edad_valida)) * 100
                     if 'ÁREA' in adultos_mayores.columns and not adultos_mayores.empty:
                         area_senior = adultos_mayores['ÁREA'].value_counts().index[0]
-
-            with c_sup2:
-                st.markdown('<div class="metric-container" style="height: 120px; padding-top: 25px;">', unsafe_allow_html=True)
-                st.metric("Edad Promedio", f"{promedio_edad:.1f} años")
-                st.markdown('</div>', unsafe_allow_html=True)
-
-            with c_sup3:
-                st.markdown('<div class="metric-container" style="height: 120px; padding-top: 25px;">', unsafe_allow_html=True)
-                st.metric("Segmento Crítico (+46 Años)", f"{cant_adultos} colab. ({porc_adultos:.0f}%)")
-                st.markdown('</div>', unsafe_allow_html=True)
-
-            with c_sup4:
-                st.markdown('<div class="metric-container" style="height: 120px; padding-top: 25px;">', unsafe_allow_html=True)
-                st.metric("Mayor Densidad Experta", area_senior)
-                st.markdown('</div>', unsafe_allow_html=True)
             
             st.markdown("<br>", unsafe_allow_html=True)
             
@@ -218,13 +197,10 @@ try:
                     df_dep.columns = ['Responsable Directo', 'Colaboradores a Cargo']
                     df_dep = df_dep[df_dep['Responsable Directo'] != '-']
                     if not df_dep.empty:
-                        # Usamos oro pulido para el líder con más gente a cargo, azul para el resto
-                        color_sequence = [PALETA_PREMIUM[2]] + [PALETA_PREMIUM[0]] * (len(df_dep) - 1)
                         fig_dep = px.bar(df_dep, x='Colaboradores a Cargo', y='Responsable Directo', 
                                          orientation='h', title="Estructura de Dependencia Jerárquica (Líneas de Reporte)",
-                                         color='Responsable Directo',
-                                         color_discrete_sequence=color_sequence)
-                        fig_dep.update_layout(height=300, yaxis={'categoryorder':'total ascending'}, showlegend=False)
+                                         color_discrete_sequence=[PALETA_PREMIUM[0]])
+                        fig_dep.update_layout(height=300, yaxis={'categoryorder':'total ascending'})
                         st.plotly_chart(fig_dep, use_container_width=True)
                         
                         lider_max = df_dep.iloc[0]['Responsable Directo']
@@ -246,7 +222,7 @@ try:
                 for ui, c, t in zip([i1, i2, i3, i4], ['GÉNERO', 'CATEGORÍA', tipo_col, 'CENTRO DE COSTOS'], ['Género', 'Categoría', 'Contratación', 'C. Costos']):
                     if c in df_fil.columns:
                         counts = df_fil[c].value_counts()
-                        # Cambiado a colores corporativos premium, eliminando el rojo
+                        # Usamos la paleta premium sin amarillo
                         fig = px.pie(counts.reset_index(), names=c, values='count', hole=0.6, color_discrete_sequence=PALETA_PREMIUM)
                         fig.update_layout(height=220, margin=dict(t=30, b=0, l=0, r=0), showlegend=False, title={'text': t, 'x': 0.5})
                         ui.plotly_chart(fig, use_container_width=True)
@@ -302,6 +278,7 @@ try:
                 st.plotly_chart(fig_turn, use_container_width=True)
                 
             with c2:
+                # Usamos colores premium sin amarillo
                 fig_mov = px.bar(df_rot_activa, x='MES', y=['ALTAS', 'BAJAS'], barmode='group', title="Balance de Movimientos de Personal", color_discrete_sequence=[PALETA_PREMIUM[0], PALETA_PREMIUM[2]])
                 fig_mov.update_layout(height=280, margin=dict(t=40, b=10, l=10, r=10), legend_title_text="Movimiento")
                 st.plotly_chart(fig_mov, use_container_width=True)
@@ -330,12 +307,14 @@ try:
                 st.plotly_chart(fig_bar_bajas, use_container_width=True)
                 
             with g2:
+                # Usamos colores premium sin amarillo
                 fig_motivo = px.pie(df_e, names='MOTIVO', title="Causas de Salida", hole=0.5, color_discrete_sequence=PALETA_PREMIUM)
                 fig_motivo.update_layout(height=180, margin=dict(t=30, b=10, l=10, r=10), showlegend=False)
                 st.plotly_chart(fig_motivo, use_container_width=True)
                 
             with g3:
-                fig_tipo_b = px.pie(df_e, names=col_t, title="Tipo de Egreso", hole=0.5, color_discrete_sequence=PALETA_PREMIUM)
+                # Usamos colores premium sin amarillo
+                fig_tipo_b = px.pie(df_e, names=col_t, title="Tipo de Egreso", hole=0.5, color_discrete_sequence=PALETA_AZUL_GRIS)
                 fig_tipo_b.update_layout(height=180, margin=dict(t=30, b=10, l=10, r=10), showlegend=False)
                 st.plotly_chart(fig_tipo_b, use_container_width=True)
 
@@ -353,7 +332,7 @@ try:
             
             motivo_pred = df_e['MOTIVO'].value_counts().index[0] if 'MOTIVO' in df_e.columns and not df_e['MOTIVO'].empty else "N/A"
             tipo_pred = df_e[col_t].value_counts().index[0] if not df_e[col_t].empty else "N/A"
-            st.info(f"**Análisis Crítico de Egresos:** La principal causa registrada de salida corresponds a **{motivo_pred}**, clasificada mayoritariamente como **{tipo_pred}**.")
+            st.info(f"**Análisis Crítico de Egresos:** La principal causa registrada de salida corresponde a **{motivo_pred}**, clasificada mayoritariamente como **{tipo_pred}**.")
 
     # --- TAB 4: CUMPLEAÑOS Y ANIVERSARIOS ---
     with tab4:
@@ -361,6 +340,8 @@ try:
         
         meses_lista = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"]
         
+        # --- MEJORA: CONSOLA DE FILTRO COMPACTO ---
+        st.markdown('<div class="custom-card" style="border-left:none; border-top: 4px solid #0f2c59; padding: 15px; background-color: #f8fafc; margin-bottom: 25px;">', unsafe_allow_html=True)
         c_filtro_izq, c_filtro_der = st.columns([1.5, 3.5])
         with c_filtro_izq:
             sel_mes_dropdown = st.selectbox(
@@ -368,6 +349,7 @@ try:
                 options=["Todo el Año"] + meses_lista,
                 index=0
             )
+        st.markdown('</div>', unsafe_allow_html=True)
         
         sel_meses = [] if sel_mes_dropdown == "Todo el Año" else [sel_mes_dropdown]
         st.markdown("<br>", unsafe_allow_html=True)
@@ -407,7 +389,7 @@ try:
                                 edad_txt = f"• Cumple {int(edad_que_cumple)} años"
 
                             st.markdown(f"""
-                                <div class="custom-card" style="border-left-color: #ef4444;">
+                                <div class="custom-card" style="border-left-color: #ef4444; height: 100%;">
                                     <div style="font-size: 22px; margin-bottom: 5px;">🎂 ✨</div>
                                     <div class="card-title">{r['APELLIDO Y NOMBRE']}</div>
                                     <div class="card-subtitle">Área: {r['ÁREA'] if 'ÁREA' in r else 'Exincor'}</div>
@@ -451,6 +433,7 @@ try:
                             ant = hoy.year - r['DT_ING'].year
                             puesto_txt = r['PUESTO'] if 'PUESTO' in r else (r['ÁREA'] if 'ÁREA' in r else 'Exincor')
                             
+                            # ETIQUETAS CORPORATIVAS
                             if ant >= 5:
                                 tag_reconocimiento = "🎖️ Talento Senior"
                             elif ant >= 2:
@@ -461,7 +444,7 @@ try:
                             fecha_exacta_txt = r[col_f_ing] if col_f_ing in r else ""
 
                             st.markdown(f"""
-                                <div class="custom-card" style="border-left-color: #0f2c59;">
+                                <div class="custom-card" style="border-left-color: #0f2c59; height: 100%;">
                                     <div style="font-size: 22px; margin-bottom: 5px;">🎖️ 🏆</div>
                                     <div class="card-title">{r['APELLIDO Y NOMBRE']}</div>
                                     <div class="card-subtitle">Puesto: {puesto_txt}</div>
