@@ -36,19 +36,19 @@ st.markdown("""
     .card-badge { display: inline-block; background-color: #e0f2fe; color: #0369a1; padding: 4px 12px; border-radius: 20px; font-weight: 700; font-size: 12px; margin-right: 4px; margin-bottom: 4px;}
     .card-badge-secondary { display: inline-block; background-color: #f1f5f9; color: #475569; padding: 4px 12px; border-radius: 20px; font-weight: 600; font-size: 11px; }
     
-    /* Diseño estilizado para los contenedores de las métricas superiores */
+    /* Diseño estilizado para los contenedores de las métricas */
     .metric-container {
         background-color: #ffffff;
         border: 1px solid #e2e8f0;
         border-radius: 12px;
-        padding: 20px;
+        padding: 15px;
         box-shadow: 0 4px 12px rgba(0,0,0,0.04);
-        text-align: center;
+        margin-bottom: 15px;
     }
     </style>
 """, unsafe_allow_html=True)
 
-# 2. COLORES Y TRADUCCIONES (Inspirados en la paleta premium, sin amarillo)
+# 2. COLORES Y TRADUCCIONES (Gama premium sin colores conflictivos)
 PALETA_PREMIUM = ['#0f2c59', '#1d4ed8', '#b1b1b1', '#64748b', '#38bdf8', '#5a8cb3']
 COLOR_BAJAS_SUAVE = '#64748B'  
 MESES_ES = {
@@ -104,7 +104,7 @@ try:
     
     tab1, tab2, tab3, tab4 = st.tabs(["📊 Panel de Dotación", "📉 Rotación Mensual", "📋 Detalle de Egresos", "🎂 Cumpleaños y Aniversarios"])
 
-    # --- TAB 1: PANEL DE DOTACIÓN ---
+    # --- TAB 1: PANEL DE DOTACIÓN (RESTAURADO ORIGINAL) ---
     with tab1:
         if not df_main.empty:
             col_f1, col_f2, col_f3, col_f4, col_f5 = st.columns(5)
@@ -125,71 +125,64 @@ try:
             if sel_area != "Todas": df_fil = df_fil[df_fil['ÁREA'] == sel_area]
             if sel_nombre != "Todos": df_fil = df_fil[df_fil['APELLIDO Y NOMBRE'] == sel_nombre]
 
+            # Fila Superior Unificada original
             st.markdown('<div class="metric-container">', unsafe_allow_html=True)
-            st.metric("Total Personal Activo Filtrado", f"{len(df_fil):,}".replace(",", "."))
+            st.metric("Total Personal Activo Filtrado", len(df_fil))
             st.markdown('</div>', unsafe_allow_html=True)
             
-            promedio_edad = 0
-            cant_adultos = 0
-            porc_adultos = 0
-            area_senior = "N/A"
-            df_edad_valida = pd.DataFrame()
-
-            if 'EDAD' in df_fil.columns:
-                df_fil['EDAD'] = pd.to_numeric(df_fil['EDAD'], errors='coerce')
-                df_edad_valida = df_fil.dropna(subset=['EDAD'])
-                if not df_edad_valida.empty:
-                    promedio_edad = df_edad_valida['EDAD'].mean()
-                    adultos_mayores = df_edad_valida[df_edad_valida['EDAD'] >= 46]
-                    cant_adultos = len(adultos_mayores)
-                    porc_adultos = (cant_adultos / len(df_edad_valida)) * 100
-                    if 'ÁREA' in adultos_mayores.columns and not adultos_mayores.empty:
-                        area_senior = adultos_mayores['ÁREA'].value_counts().index[0]
-            
             st.markdown("<br>", unsafe_allow_html=True)
-            
             st.markdown("### 📈 Indicadores Demográficos y Estructura Organizacional")
             c_dem1, c_dem2 = st.columns(2)
             
             with c_dem1:
-                if not df_edad_valida.empty:
-                    bins = [0, 25, 35, 45, 55, 100]
-                    labels = ['Hasta 25 años', '26 a 35 años', '36 a 45 años', '46 a 55 años', 'Más de 55 años']
-                    df_edad_valida['RANGO_EDAD'] = pd.cut(df_edad_valida['EDAD'], bins=bins, labels=labels, right=False)
-                    
-                    fig_edad = px.histogram(df_edad_valida, x='RANGO_EDAD', color='ÁREA' if 'ÁREA' in df_edad_valida.columns else None,
-                                            title="Distribución de Rangos de Edad Abiertos por Área",
-                                            category_orders={'RANGO_EDAD': labels},
-                                            color_discrete_sequence=PALETA_PREMIUM)
-                    fig_edad.update_layout(xaxis_title="Rango de Edad", yaxis_title="Cantidad de Colaboradores", height=300, legend_title_text="Áreas")
-                    st.plotly_chart(fig_edad, use_container_width=True)
-                    
-                    st.info(
-                        f"**Resumen Ejecutivo (Edad):** La dotación activa presenta una edad promedio de **{promedio_edad:.1f} años**. "
-                        f"El **{porc_adultos:.1f}%** de la nómina (**{cant_adultos} colaboradores**) se concentra en las franjas de **46 años o más**, "
-                        f"detectándose que el área de **{area_senior}** es la que presenta mayor densidad de este perfil experto."
-                    )
-                    
-                    # --- ALERTA DETALLADA DE PRÓXIMOS A JUBILARSE ---
-                    st.markdown("---")
-                    st.markdown("#### ⏳ Control de Seguimiento Pre-Jubilatorio")
-                    col_sexo = next((c for c in df_edad_valida.columns if 'SEXO' in c or 'GÉNERO' in c or 'GENERO' in c), None)
-                    
-                    if col_sexo:
-                        df_edad_valida.loc[:, col_sexo] = df_edad_valida[col_sexo].astype(str).str.strip().str.upper()
-                        jubilables = df_edad_valida[
-                            ((df_edad_valida[col_sexo].str.contains('F', na=False)) & (df_edad_valida['EDAD'] >= 59)) |
-                            ((df_edad_valida[col_sexo].str.contains('M', na=False)) & (df_edad_valida['EDAD'] >= 64))
-                        ]
-                    else:
-                        jubilables = df_edad_valida[df_edad_valida['EDAD'] >= 59]
-                    
-                    if not jubilables.empty:
-                        st.warning(f"⚠️ **Atención:** Se identificaron **{len(jubilables)}** colaboradores alcanzando la edad límite o próximos a iniciar gestiones jubilatorias:")
-                        cols_mostrar_jub = [c for c in ['APELLIDO Y NOMBRE', 'ÁREA', 'EDAD', col_sexo] if c and c in jubilables.columns]
-                        st.dataframe(jubilables[cols_mostrar_jub].sort_values('EDAD', ascending=False), hide_index=True, use_container_width=True)
-                    else:
-                        st.success("✅ No se registran colaboradores en rangos de edad críticos para trámite jubilatorio inmediato.")
+                if 'EDAD' in df_fil.columns:
+                    df_fil['EDAD'] = pd.to_numeric(df_fil['EDAD'], errors='coerce')
+                    df_edad_valida = df_fil.dropna(subset=['EDAD'])
+                    if not df_edad_valida.empty:
+                        bins = [0, 25, 35, 45, 55, 100]
+                        labels = ['Hasta 25 años', '26 a 35 años', '36 a 45 años', '46 a 55 años', 'Más de 55 años']
+                        df_edad_valida['RANGO_EDAD'] = pd.cut(df_edad_valida['EDAD'], bins=bins, labels=labels, right=False)
+                        promedio_edad = df_edad_valida['EDAD'].mean()
+                        
+                        adultos_mayores = df_edad_valida[df_edad_valida['EDAD'] >= 46]
+                        cant_adultos = len(adultos_mayores)
+                        porc_adultos = (cant_adultos / len(df_edad_valida)) * 100
+                        
+                        area_senior = "N/A"
+                        if 'ÁREA' in adultos_mayores.columns and not adultos_mayores.empty:
+                            area_senior = adultos_mayores['ÁREA'].value_counts().index[0]
+                        
+                        fig_edad = px.histogram(df_edad_valida, x='RANGO_EDAD', color='ÁREA' if 'ÁREA' in df_edad_valida.columns else None,
+                                                title=f"Distribución de Rangos de Edad Abiertos por Área (Promedio: {promedio_edad:.1f} años)",
+                                                category_orders={'RANGO_EDAD': labels},
+                                                color_discrete_sequence=PALETA_PREMIUM)
+                        fig_edad.update_layout(xaxis_title="Rango de Edad", yaxis_title="Cantidad de Colaboradores", height=300, legend_title_text="Áreas")
+                        st.plotly_chart(fig_edad, use_container_width=True)
+                        
+                        st.info(
+                            f"**Resumen Ejecutivo (Edad):** La dotación activa presenta una edad promedio de **{promedio_edad:.1f} años**. "
+                            f"El **{porc_adultos:.1f}%** de la nómina (**{cant_adultos} colaboradores**) se concentra en las franjas de **46 años o más**, "
+                            f"detectándose que el área de **{area_senior}** es la que presenta mayor densidad de este perfil experto."
+                        )
+                        
+                        st.markdown("---")
+                        st.markdown("#### ⏳ Control de Seguimiento Pre-Jubilatorio")
+                        col_sexo = next((c for c in df_edad_valida.columns if 'SEXO' in c or 'GÉNERO' in c or 'GENERO' in c), None)
+                        if col_sexo:
+                            df_edad_valida.loc[:, col_sexo] = df_edad_valida[col_sexo].astype(str).str.strip().str.upper()
+                            jubilables = df_edad_valida[
+                                ((df_edad_valida[col_sexo].str.contains('F', na=False)) & (df_edad_valida['EDAD'] >= 59)) |
+                                ((df_edad_valida[col_sexo].str.contains('M', na=False)) & (df_edad_valida['EDAD'] >= 64))
+                            ]
+                        else:
+                            jubilables = df_edad_valida[df_edad_valida['EDAD'] >= 59]
+                        
+                        if not jubilables.empty:
+                            st.warning(f"⚠️ **Atención:** Se identificaron **{len(jubilables)}** colaboradores alcanzando la edad límite o próximos a iniciar gestiones jubilatorias:")
+                            cols_mostrar_jub = [c for c in ['APELLIDO Y NOMBRE', 'ÁREA', 'EDAD', col_sexo] if c and c in jubilables.columns]
+                            st.dataframe(jubilables[cols_mostrar_jub].sort_values('EDAD', ascending=False), hide_index=True, use_container_width=True)
+                        else:
+                            st.success("✅ No se registran colaboradores en rangos de edad críticos para trámite jubilatorio inmediato.")
             
             with c_dem2:
                 if 'RESPONSABLE DIRECTO' in df_fil.columns:
@@ -222,7 +215,6 @@ try:
                 for ui, c, t in zip([i1, i2, i3, i4], ['GÉNERO', 'CATEGORÍA', tipo_col, 'CENTRO DE COSTOS'], ['Género', 'Categoría', 'Contratación', 'C. Costos']):
                     if c in df_fil.columns:
                         counts = df_fil[c].value_counts()
-                        # Usamos la paleta premium sin amarillo
                         fig = px.pie(counts.reset_index(), names=c, values='count', hole=0.6, color_discrete_sequence=PALETA_PREMIUM)
                         fig.update_layout(height=220, margin=dict(t=30, b=0, l=0, r=0), showlegend=False, title={'text': t, 'x': 0.5})
                         ui.plotly_chart(fig, use_container_width=True)
@@ -232,7 +224,7 @@ try:
                     cat_pred = df_fil['CATEGORÍA'].value_counts().index[0] if 'CATEGORÍA' in df_fil.columns and not df_fil['CATEGORÍA'].empty else "N/A"
                     st.info(f"**Análisis de Distribución Interna:** Los indicadores de estructura muestran que el género predominante es **{gen_pred}** y la categoría con mayor densidad de colaboradores es **{cat_pred}**.")
 
-    # --- TAB 2: ROTACIÓN MENSUAL ---
+    # --- TAB 2: ROTACIÓN MENSUAL (CORREGIDA LA SUBJETIVIDAD Y CONTENEDORES) ---
     with tab2:
         st.header("📉 Análisis de Rotación y Movimientos")
         if not df_rot.empty:
@@ -254,6 +246,7 @@ try:
                 ult_mes = "N/A"
                 df_rot_activa = df_rot.copy()
 
+            # --- CORRECCIÓN CLAVE AQUÍ: Valores e indicadores empaquetados limpios ---
             m1, m2, m3 = st.columns(3)
             with m1:
                 st.markdown('<div class="metric-container">', unsafe_allow_html=True)
@@ -278,7 +271,6 @@ try:
                 st.plotly_chart(fig_turn, use_container_width=True)
                 
             with c2:
-                # Usamos colores premium sin amarillo
                 fig_mov = px.bar(df_rot_activa, x='MES', y=['ALTAS', 'BAJAS'], barmode='group', title="Balance de Movimientos de Personal", color_discrete_sequence=[PALETA_PREMIUM[0], PALETA_PREMIUM[2]])
                 fig_mov.update_layout(height=280, margin=dict(t=40, b=10, l=10, r=10), legend_title_text="Movimiento")
                 st.plotly_chart(fig_mov, use_container_width=True)
@@ -307,14 +299,12 @@ try:
                 st.plotly_chart(fig_bar_bajas, use_container_width=True)
                 
             with g2:
-                # Usamos colores premium sin amarillo
                 fig_motivo = px.pie(df_e, names='MOTIVO', title="Causas de Salida", hole=0.5, color_discrete_sequence=PALETA_PREMIUM)
                 fig_motivo.update_layout(height=180, margin=dict(t=30, b=10, l=10, r=10), showlegend=False)
                 st.plotly_chart(fig_motivo, use_container_width=True)
                 
             with g3:
-                # Usamos colores premium sin amarillo
-                fig_tipo_b = px.pie(df_e, names=col_t, title="Tipo de Egreso", hole=0.5, color_discrete_sequence=PALETA_AZUL_GRIS)
+                fig_tipo_b = px.pie(df_e, names=col_t, title="Tipo de Egreso", hole=0.5, color_discrete_sequence=PALETA_PREMIUM)
                 fig_tipo_b.update_layout(height=180, margin=dict(t=30, b=10, l=10, r=10), showlegend=False)
                 st.plotly_chart(fig_tipo_b, use_container_width=True)
 
@@ -329,10 +319,6 @@ try:
                 st.dataframe(df_tabla_bajas, hide_index=True, use_container_width=True, height=250)
             else:
                 st.info("No se registran bajas para los criterios seleccionados.")
-            
-            motivo_pred = df_e['MOTIVO'].value_counts().index[0] if 'MOTIVO' in df_e.columns and not df_e['MOTIVO'].empty else "N/A"
-            tipo_pred = df_e[col_t].value_counts().index[0] if not df_e[col_t].empty else "N/A"
-            st.info(f"**Análisis Crítico de Egresos:** La principal causa registrada de salida corresponde a **{motivo_pred}**, clasificada mayoritariamente como **{tipo_pred}**.")
 
     # --- TAB 4: CUMPLEAÑOS Y ANIVERSARIOS ---
     with tab4:
@@ -340,7 +326,6 @@ try:
         
         meses_lista = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"]
         
-        # --- MEJORA: CONSOLA DE FILTRO COMPACTO ---
         st.markdown('<div class="custom-card" style="border-left:none; border-top: 4px solid #0f2c59; padding: 15px; background-color: #f8fafc; margin-bottom: 25px;">', unsafe_allow_html=True)
         c_filtro_izq, c_filtro_der = st.columns([1.5, 3.5])
         with c_filtro_izq:
@@ -368,97 +353,4 @@ try:
                         df_v['MES_NUM'] = df_v['DT_NAC'].dt.month
                         df_v = df_v.sort_values(['MES_NUM', 'DIA'])
                 else:
-                    df_v = df_cump.dropna(subset=['DT_NAC']).copy()
-                    if not df_v.empty:
-                        df_v['MES_NUM'] = df_v['DT_NAC'].dt.month
-                        df_v = df_v.sort_values(['MES_NUM', 'DIA'])
-                
-                if not df_v.empty:
-                    st.write(f"Mostrando **{len(df_v)}** cumpleaños registrados:")
-                    
-                    col1, col2, col3 = st.columns(3)
-                    for idx, (_, r) in enumerate(df_v.reset_index().iterrows()):
-                        if idx % 3 == 0: target_col = col1
-                        elif idx % 3 == 1: target_col = col2
-                        else: target_col = col3
-                        
-                        with target_col:
-                            edad_txt = ""
-                            if pd.notnull(r['DT_NAC']):
-                                edad_que_cumple = hoy.year - r['DT_NAC'].year
-                                edad_txt = f"• Cumple {int(edad_que_cumple)} años"
-
-                            st.markdown(f"""
-                                <div class="custom-card" style="border-left-color: #ef4444; height: 100%;">
-                                    <div style="font-size: 22px; margin-bottom: 5px;">🎂 ✨</div>
-                                    <div class="card-title">{r['APELLIDO Y NOMBRE']}</div>
-                                    <div class="card-subtitle">Área: {r['ÁREA'] if 'ÁREA' in r else 'Exincor'}</div>
-                                    <div class="card-badge" style="background-color: #fee2e2; color: #991b1b;">📅 Día {int(r['DIA'])} de {r['MES_NOMBRE']}</div>
-                                    <div class="card-badge-secondary">{edad_txt}</div>
-                                </div>
-                            """, unsafe_allow_html=True)
-                else:
-                    st.info("No se registran cumpleaños para los meses seleccionados.")
-            else:
-                st.info("La base de datos de cumpleaños se encuentra vacía.")
-
-        with t_ani:
-            if not df_main.empty:
-                col_f_ing = next((c for c in df_main.columns if 'INGRESO' in c or 'ALTA' in c), 'FECHA INGRESO')
-                df_main['DT_ING'] = limpiar_fecha(df_main, col_f_ing)
-                df_main['MES_NOMBRE'] = df_main['DT_ING'].dt.month.apply(lambda x: meses_lista[int(x)-1] if pd.notnull(x) else None)
-                df_main['DIA'] = df_main['DT_ING'].dt.day
-                
-                if sel_meses:
-                    df_ani_fil = df_main[df_main['MES_NOMBRE'].isin(sel_meses)].copy()
-                    if not df_ani_fil.empty:
-                        df_ani_fil['MES_NUM'] = df_ani_fil['DT_ING'].dt.month
-                        df_ani_fil = df_ani_fil.sort_values(['MES_NUM', 'DIA'])
-                else:
-                    df_ani_fil = df_main.dropna(subset=['DT_ING']).copy()
-                    if not df_ani_fil.empty:
-                        df_ani_fil['MES_NUM'] = df_ani_fil['DT_ING'].dt.month
-                        df_ani_fil = df_ani_fil.sort_values(['MES_NUM', 'DIA'])
-                
-                if not df_ani_fil.empty:
-                    st.write(f"Mostrando **{len(df_ani_fil)}** aniversarios laborales:")
-                    
-                    col1, col2, col3 = st.columns(3)
-                    for idx, (_, r) in enumerate(df_ani_fil.reset_index().iterrows()):
-                        if idx % 3 == 0: target_col = col1
-                        elif idx % 3 == 1: target_col = col2
-                        else: target_col = col3
-                        
-                        with target_col:
-                            ant = hoy.year - r['DT_ING'].year
-                            puesto_txt = r['PUESTO'] if 'PUESTO' in r else (r['ÁREA'] if 'ÁREA' in r else 'Exincor')
-                            
-                            # ETIQUETAS CORPORATIVAS
-                            if ant >= 5:
-                                tag_reconocimiento = "🎖️ Talento Senior"
-                            elif ant >= 2:
-                                tag_reconocimiento = "⚡ Trayectoria Consolidada"
-                            else:
-                                tag_reconocimiento = "🌱 Nuevo Talento"
-                                
-                            fecha_exacta_txt = r[col_f_ing] if col_f_ing in r else ""
-
-                            st.markdown(f"""
-                                <div class="custom-card" style="border-left-color: #0f2c59; height: 100%;">
-                                    <div style="font-size: 22px; margin-bottom: 5px;">🎖️ 🏆</div>
-                                    <div class="card-title">{r['APELLIDO Y NOMBRE']}</div>
-                                    <div class="card-subtitle">Puesto: {puesto_txt}</div>
-                                    <div style="margin-bottom: 8px;">
-                                        <span class="card-badge" style="background-color: #e0f2fe; color: #0369a1;">🎉 {int(ant)} Años • {int(r['DIA'])} de {r['MES_NOMBRE']}</span>
-                                    </div>
-                                    <div class="card-badge-secondary" style="background-color: #f0fdf4; color: #166534; font-weight:700;">{tag_reconocimiento}</div>
-                                    <div style="font-size: 11px; color: #64748B; margin-top: 6px; font-weight: 500;">Ingreso: {fecha_exacta_txt}</div>
-                                </div>
-                            """, unsafe_allow_html=True)
-                else:
-                    st.info("No se registran aniversarios laborales para los meses seleccionados.")
-            else:
-                st.info("La base de datos general se encuentra vacía.")
-
-except Exception as e:
-    st.error(f"Error crítico en la plataforma: {e}")
+                    df_v =
