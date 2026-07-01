@@ -97,13 +97,14 @@ def cargar_datos(gid):
 def limpiar_fecha(df, col):
     if col in df.columns:
         s = df[col].astype(str).str.replace(r'\s+.*', '', regex=True).str.strip()
-        return pd.to_datetime(s, format='%d/%m/%Y', errors='coerce')
+        # Se flexibiliza el parseo para admitir días y meses de un solo dígito sin alterar la estructura original
+        return pd.to_datetime(s, errors='coerce', dayfirst=True)
     return pd.Series([pd.NaT] * len(df))
 
 try:
     # --- CARGA DE DATOS REALES ---
     df_main = cargar_datos("1543772338") 
-    df_cump = cargar_datos("540729566")  
+    df_cump = cargar_datos("540729566")   
     df_rot = cargar_datos("209126075")   
     df_baj = cargar_datos("728077629")   
     hoy = datetime.now()
@@ -120,7 +121,7 @@ try:
     
     tab1, tab2, tab3, tab4 = st.tabs(["📊 Panel de Dotación", "📉 Rotación Mensual", "📋 Detalle de Egresos", "🎂 Cumpleaños y Aniversarios"])
 
-    # --- TAB 1: PANEL DE DOTACIÓN (FILTROS CORREGIDOS) ---
+    # --- TAB 1: PANEL DE DOTACIÓN ---
     with tab1:
         if not df_main.empty:
             tipo_col = next((c for c in df_main.columns if 'CONTRATACIÓN' in c or 'CONTRATACION' in c), 'TIPO DE CONTRATACIÓN')
@@ -133,14 +134,12 @@ try:
                     return [d] + sorted([v for v in valores if v != '' and v != '-'])
                 return [d]
             
-            # Los selectores se arman SIEMPRE con el universo completo de opciones para evitar que desaparezcan nombres
             with col_f1: sel_conv = st.selectbox("Convenio", get_opts(df_main, 'CONVENIO'))
             with col_f2: sel_resp = st.selectbox("Responsable Directo", get_opts(df_main, 'RESPONSABLE DIRECTO'))
             with col_f3: sel_tipo = st.selectbox("Tipo Contratación", get_opts(df_main, tipo_col))
             with col_f4: sel_area = st.selectbox("Área", get_opts(df_main, 'ÁREA', "Todas"))
             with col_f5: sel_nombre = st.selectbox("Personal (Buscar Apellido)", get_opts(df_main, 'APELLIDO Y NOMBRE'))
 
-            # LÓGICA DE FILTRADO INTELIGENTE: Si busca una persona específica, ignora el resto para que no choque
             if sel_nombre != "Todos":
                 df_fil = df_main[df_main['APELLIDO Y NOMBRE'] == sel_nombre].copy()
             else:
@@ -150,7 +149,6 @@ try:
                 if sel_tipo != "Todos": df_fil = df_fil[df_fil[tipo_col] == sel_tipo]
                 if sel_area != "Todas": df_fil = df_fil[df_fil['ÁREA'] == sel_area]
 
-            # Procesamiento demográfico previo
             promedio_edad = 0
             cant_adultos = 0
             porc_adultos = 0
@@ -168,7 +166,6 @@ try:
                     if 'ÁREA' in adultos_mayores.columns and not adultos_mayores.empty:
                         area_senior = adultos_mayores['ÁREA'].value_counts().index[0]
 
-            # Tarjetas HTML superiores blindadas
             c_sup1, c_sup2, c_sup3, c_sup4 = st.columns([1.5, 1, 1.25, 1.25])
             with c_sup1:
                 st.markdown(f'<div class="metric-card-premium"><div class="metric-card-title">Total Personal Activo Filtrado</div><div class="metric-card-value">{len(df_fil)}</div></div>', unsafe_allow_html=True)
@@ -256,7 +253,7 @@ try:
                         fig.update_layout(height=220, margin=dict(t=30, b=0, l=0, r=0), showlegend=False, title={'text': t, 'x': 0.5})
                         ui.plotly_chart(fig, use_container_width=True)
 
-    # --- TAB 2: ROTACIÓN MENSUAL ---
+    # --- TAB 2: ROTACIÓN MENSUAL (CORREGIDA PARA INCLUIR NUEVOS MESES) ---
     with tab2:
         st.header("📉 Análisis de Rotación y Movimientos")
         if not df_rot.empty:
@@ -264,23 +261,23 @@ try:
             df_rot['ALTAS'] = pd.to_numeric(df_rot['ALTAS'], errors='coerce').fillna(0)
             df_rot['BAJAS'] = pd.to_numeric(df_rot['BAJAS'], errors='coerce').fillna(0)
             
-            df_rot_valida = df_rot.dropna(subset=['ROT_VAL'])
-            if not df_rot_valida.empty:
-                ult_fila = df_rot_valida.iloc[-1]
+            # Limpiamos las filas completamente vacías o sin nombre de mes para no graficar de más
+            df_rot_activa = df_rot.dropna(subset=['MES']).copy()
+            df_rot_activa = df_rot_activa[df_rot_activa['MES'].str.strip() != '']
+            
+            # Buscamos de forma segura el último mes que contenga un porcentaje numérico válido para la tarjeta métrica
+            df_con_porcentaje = df_rot_activa.dropna(subset=['ROT_VAL'])
+            if not df_con_porcentaje.empty:
+                ult_fila = df_con_porcentaje.iloc[-1]
                 ult_mes = ult_fila['MES']
                 ult_rot = ult_fila['ROT_VAL']
-                texto_rotacion = f"registra su última medición disponible en **{ult_mes}** reflejando un **{ult_rot:.1f}%**."
-                idx_ultimo = df_rot_valida.index[-1]
-                df_rot_activa = df_rot.loc[:idx_ultimo].copy()
             else:
-                texto_rotacion = "no registra porcentajes numéricos procesables."
-                ult_rot = 0
-                ult_mes = "N/A"
-                df_rot_activa = df_rot.copy()
+                ult_mes = df_rot_activa.iloc[-1]['MES'] if not df_rot_activa.empty else "N/A"
+                ult_rot = 0.0
 
             m1, m2, m3 = st.columns(3)
             with m1:
-                st.markdown(f'<div class="metric-card-premium"><div class="metric-card-title">Turnover Último Mes ({ult_mes})</div><div class="metric-card-value">{ult_rot:.1f}%</div></div>', unsafe_allow_html=True)
+                st.markdown(f'<div class="metric-card-premium"><div class="metric-card-title">Turnover Último Mes Calculado ({ult_mes})</div><div class="metric-card-value">{ult_rot:.1f}%</div></div>', unsafe_allow_html=True)
             with m2:
                 st.markdown(f'<div class="metric-card-premium"><div class="metric-card-title">Total Altas Acumuladas</div><div class="metric-card-value">{int(df_rot_activa["ALTAS"].sum())} Pers.</div></div>', unsafe_allow_html=True)
             with m3:
@@ -290,12 +287,14 @@ try:
 
             c1, c2 = st.columns(2)
             with c1:
-                fig_turn = px.line(df_rot_activa, x='MES', y='ROT_VAL', title="Evolución Mensual del % Turnover", markers=True, color_discrete_sequence=[PALETA_PREMIUM[0]])
+                # El gráfico de líneas se alimenta solo de los meses con porcentaje calculado para evitar caídas a cero abruptas
+                fig_turn = px.line(df_con_porcentaje, x='MES', y='ROT_VAL', title="Evolución Mensual del % Turnover", markers=True, color_discrete_sequence=[PALETA_PREMIUM[0]])
                 fig_turn.update_yaxes(ticksuffix="%")
                 fig_turn.update_layout(height=280, margin=dict(t=40, b=10, l=10, r=10))
                 st.plotly_chart(fig_turn, use_container_width=True)
                 
             with c2:
+                # El balance de barras muestra la totalidad de meses con novedades (enero a junio completo)
                 fig_mov = px.bar(df_rot_activa, x='MES', y=['ALTAS', 'BAJAS'], barmode='group', title="Balance de Movimientos de Personal", color_discrete_sequence=[PALETA_PREMIUM[0], PALETA_PREMIUM[2]])
                 fig_mov.update_layout(height=280, margin=dict(t=40, b=10, l=10, r=10), legend_title_text="Movimiento")
                 st.plotly_chart(fig_mov, use_container_width=True)
@@ -304,7 +303,7 @@ try:
     with tab3:
         st.header("📋 Detalle y Registro de Egresos")
         if not df_baj.empty:
-            df_e = df_baj[df_baj['ANTIGUEDAD'].astype(str).str.contains('años|meses|días', case=False, na=False)].copy()
+            df_e = df_baj[df_baj['ANTIGUEDAD'].astype(str).str.contains('años|meses|días|dia|mes|año', case=False, na=False)].copy()
             df_e['FECHA_BAJA_DT'] = limpiar_fecha(df_e, 'FECHA DE BAJA')
             df_e['MES_NOMBRE'] = df_e['FECHA_BAJA_DT'].dt.strftime('%B').map(MESES_ES)
             df_e['MES_NUM'] = df_e['FECHA_BAJA_DT'].dt.month
@@ -312,24 +311,25 @@ try:
             if 'sel_area' in locals() and sel_area != "Todas" and 'ÁREA' in df_e.columns:
                 df_e = df_e[df_e['ÁREA'] == sel_area]
 
-            b_mes = df_e.groupby(['MES_NUM', 'MES_NOMBRE']).size().reset_index(name='CANTIDAD').sort_values('MES_NUM')
-            col_t = [c for c in df_e.columns if 'TIPO DE BAJA' in c][0]
+            if not df_e.empty:
+                b_mes = df_e.groupby(['MES_NUM', 'MES_NOMBRE']).size().reset_index(name='CANTIDAD').sort_values('MES_NUM')
+                col_t = [c for c in df_e.columns if 'TIPO DE BAJA' in c][0]
 
-            g1, g2, g3 = st.columns([1.5, 1.25, 1.25])
-            with g1:
-                fig_bar_bajas = px.bar(b_mes, x='MES_NOMBRE', y='CANTIDAD', title="Bajas por Mes", text='CANTIDAD', color_discrete_sequence=[COLOR_BAJAS_SUAVE])
-                fig_bar_bajas.update_layout(height=180, margin=dict(t=30, b=10, l=10, r=10), yaxis_visible=False)
-                st.plotly_chart(fig_bar_bajas, use_container_width=True)
-                
-            with g2:
-                fig_motivo = px.pie(df_e, names='MOTIVO', title="Causas de Salida", hole=0.5, color_discrete_sequence=PALETA_PREMIUM)
-                fig_motivo.update_layout(height=180, margin=dict(t=30, b=10, l=10, r=10), showlegend=False)
-                st.plotly_chart(fig_motivo, use_container_width=True)
-                
-            with g3:
-                fig_tipo_b = px.pie(df_e, names=col_t, title="Tipo de Egreso", hole=0.5, color_discrete_sequence=PALETA_PREMIUM)
-                fig_tipo_b.update_layout(height=180, margin=dict(t=30, b=10, l=10, r=10), showlegend=False)
-                st.plotly_chart(fig_tipo_b, use_container_width=True)
+                g1, g2, g3 = st.columns([1.5, 1.25, 1.25])
+                with g1:
+                    fig_bar_bajas = px.bar(b_mes, x='MES_NOMBRE', y='CANTIDAD', title="Bajas por Mes", text='CANTIDAD', color_discrete_sequence=[COLOR_BAJAS_SUAVE])
+                    fig_bar_bajas.update_layout(height=180, margin=dict(t=30, b=10, l=10, r=10), yaxis_visible=False)
+                    st.plotly_chart(fig_bar_bajas, use_container_width=True)
+                    
+                with g2:
+                    fig_motivo = px.pie(df_e, names='MOTIVO', title="Causas de Salida", hole=0.5, color_discrete_sequence=PALETA_PREMIUM)
+                    fig_motivo.update_layout(height=180, margin=dict(t=30, b=10, l=10, r=10), showlegend=False)
+                    st.plotly_chart(fig_motivo, use_container_width=True)
+                    
+                with g3:
+                    fig_tipo_b = px.pie(df_e, names=col_t, title="Tipo de Egreso", hole=0.5, color_discrete_sequence=PALETA_PREMIUM)
+                    fig_tipo_b.update_layout(height=180, margin=dict(t=30, b=10, l=10, r=10), showlegend=False)
+                    st.plotly_chart(fig_tipo_b, use_container_width=True)
 
             st.markdown("---")
             st.markdown("<p style='font-weight: bold; font-size: 16px; color: #0f2c59;'>📋 Registro Nominal de Personal Desvinculado</p>", unsafe_allow_html=True)
